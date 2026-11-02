@@ -1,0 +1,70 @@
+# Render Blueprint for the V-Game API on the free plan (512 MB, 0.1 CPU, sleeps after 15 idle
+# minutes, disk wiped on every restart). The API loads no ML model: the index, question vectors
+# and rerank scores ship in backend/src/vgame/engine/data (vgame-build-index), with real Gemini
+# answers for every reference and starter graph (replay seed). Measured on Windows: 118 MB
+# after startup, 158 MB after every index handle and 200 runs (RunStore full).
+# Create it once from the dashboard: New > Blueprint > this repository. Then set GEMINI_API_KEY
+# in the service's Environment tab (it is never stored in git).
+#
+# Staying at $0 (Render has no spend cap; the Hobby workspace includes 750 free instance hours,
+# 500 build minutes and 5 GB outbound bandwidth a month, and bills build/bandwidth overage):
+# - plan: free only; no disks, databases, cron jobs or extra services in this file.
+# - previews off: pull requests never spin up extra services.
+# - deploys only for commits whose GitHub checks passed, and only when the API's inputs change
+#   (backend/, the content it reads, this file), so frontend or docs merges cost no build minutes.
+previews:
+  generation: off
+
+services:
+  - type: web
+    name: v-game-api
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: backend
+    # uv reads backend/.python-version and installs exactly what uv.lock pins. --no-dev skips the
+    # "models" group (fastembed, onnxruntime: ~38 MB of wheels); --compile-bytecode spares every
+    # wake-up the compile (import 3.4 s instead of 7.1 s of CPU on a laptop, x10 at 0.1 CPU).
+    buildCommand: pip install uv==0.11.19 && uv sync --frozen --no-dev --compile-bytecode
+    startCommand: uv run --no-sync uvicorn --factory vgame.main:create_app --host 0.0.0.0 --port $PORT --no-server-header
+    healthCheckPath: /api/health
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - backend/**
+        - docs/content/**
+        - render.yaml
+    envVars:
+      - key: ENV
+        value: production
+      # gemini-3.8-flash's free quota on the owner's key is exhausted; flash-lite answers.
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: GEMINI_API_KEY
+        sync: false
+      # One run at a time on 0.1 CPU; a second visitor gets a Vietnamese "busy, retry in a minute".
+      - key: MAX_CONCURRENT_RUNS
+        value: "1"
+      # Real (non-replayed) Gemini calls per UTC day, every model of the chain. Placeholder: set it
+      # to ~80 % of the chain's requests per day shown in AI Studio (not published). Resets on
+      # every restart or sleep, so the provider's own daily 429 stays the hard ceiling. Requests per
+      # minute per model come from engine/llm.py DEFAULT_RPM (GEMINI_RPM overrides).
+      - key: DAILY_LLM_CALL_CAP
+        value: "200"
+      # The learner share P and the shared reserve R are derived from the cap above, so all three
+      # move together (docs/content/scenarios/daily-shift.md §3.1). For a pilot class of 30:
+      #   class share = 0.9 x cap                     = 180   (10 % is left for retries/fallbacks)
+      #   spare       = class share - 40 - 3          = 137   (projector pool, common-incident fix)
+      #   P           = (spare - 15) // 30            = 4     (15 is the floor kept for R)
+      #   R           = spare - 30 x P                = 17    (the division's remainder joins R)
+      # test_deploy_config re-derives these; raising the cap without recomputing them fails CI.
+      # At P = 4 a learner can afford one "Thử 3 câu mẫu" (3 calls) but no star run (L1 7, L2/L3
+      # 10), so on this deploy "Mở ca" degrades to the sample run and the recorded run by design
+      # (daily-shift §3.2). Raise the cap to 500 for P = 13 once the key's daily quota allows it.
+      - key: QUOTA_LEARNER_CALLS
+        value: "4"
+      - key: QUOTA_RESERVE_CALLS
+        value: "17"
+      # numpy's BLAS would reserve a buffer per idle thread; the server needs none.
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"

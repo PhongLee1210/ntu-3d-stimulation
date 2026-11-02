@@ -1,0 +1,43 @@
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local tooling: CodeGraph index and personal lefthook overrides
+.codegraph/
+lefthook-local.yml
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Node / frontend
+node_modules/
+frontend/build/
+frontend/.react-router/
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+frontend/.vercel/
+*.tsbuildinfo
+
+# Python / backend
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+# Engine artifacts: model files, index variants, replay cache (vgame-build-index)
+backend/.cache/
+
+# Data pipeline caches (models, intermediate embeddings)
+tools/**/.cache/

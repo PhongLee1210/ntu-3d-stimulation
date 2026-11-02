@@ -1,0 +1,105 @@
+{
+  "id": "vinuni",
+  "name": "Khuôn viên VinUni",
+  "brand": {
+    "programName": "AI 20K",
+    "orgName": "VinUniversity",
+    "disclaimer": "Dự án học tập độc lập, lấy cảm hứng từ khuôn viên VinUniversity. Không phải sản phẩm chính thức của VinUniversity."
+  },
+  "place": { "name": "Hà Nội", "lat": 21.0285, "lon": 105.8542, "timeZone": "Asia/Ho_Chi_Minh" },
+  "fonts": {
+    "preload": [
+      "fonts/montserrat-latin-wght-normal.woff2",
+      "fonts/montserrat-vietnamese-wght-normal.woff2"
+    ]
+  },
+  "hero": {
+    "sources": [
+      { "src": "images/campus-768.webp", "width": 768 },
+      { "src": "images/campus-1280.webp", "width": 1280 },
+      { "src": "images/campus-1920.webp", "width": 1920 }
+    ],
+    "width": 1920,
+    "height": 1172,
+    "alt": "Toà nhà trung tâm màu trắng có tháp nhọn, nhìn từ bãi cỏ trước khuôn viên VinUniversity",
+    "credit": "Ảnh: VinUniversity"
+  },
+  "campus": {
+    "ground": "#a7c584",
+    "path": "#ece4d8",
+    "plaza": "#f1ece4",
+    "water": "#8fb9cf",
+    "foliage": "#5e8c4c",
+    "trunk": "#7b5a3c",
+    "player": "#134d8b",
+    "npc": "#d08a1e",
+    "landmark": {
+      "archetype": "spire-hall",
+      "name": "Toà nhà trung tâm",
+      "wall": "#f6f3ee",
+      "trim": "#dfd9cf",
+      "roof": "#d3d3cf",
+      "accent": "#d4a24c",
+      "colonnades": true
+    },
+    "buildings": {
+      "library": { "wall": "#f6f3ee", "trim": "#dcd5ca", "roof": "#134d8b" },
+      "watchtower": { "wall": "#f4f2ee", "trim": "#d9d4cb", "roof": "#0b2a4d" },
+      "market": { "wall": "#f6f3ee", "trim": "#ddd6ca", "roof": "#c72127" }
+    },
+    "lights": {
+      "dawn": {
+        "sky": "#e6e8ff",
+        "ground": "#cbc3cf",
+        "hemisphere": 1.72,
+        "sun": "#ffc2a6",
+        "sunIntensity": 1.55,
+        "sunDirection": [0.7, 0.55, 0.3],
+        "rim": 0.5
+      },
+      "day": {
+        "sky": "#d0e5ff",
+        "ground": "#bfb5a9",
+        "hemisphere": 3.054,
+        "sun": "#ffd059",
+        "sunIntensity": 1.561,
+        "sunDirection": [-0.35, 1, 0.75],
+        "rim": 0.25
+      },
+      "dusk": {
+        "sky": "#9dccff",
+        "ground": "#f4d9f2",
+        "hemisphere": 1.262,
+        "sun": "#ffb736",
+        "sunIntensity": 2.661,
+        "sunDirection": [-0.62, 0.55, 0.6],
+        "rim": 0.6
+      },
+      "night": {
+        "sky": "#8ea3d6",
+        "ground": "#606b8a",
+        "hemisphere": 0.95,
+        "sun": "#c9d6ff",
+        "sunIntensity": 0.42,
+        "sunDirection": [-0.35, 1, 0.75],
+        "rim": 0.1
+      }
+    },
+    "npcs": {
+      "guard": { "name": "chú bảo vệ", "top": "#f3f2ee", "bottom": "#23262b", "accent": "#1e2b45" },
+      "registrar": {
+        "name": "chị Diệp",
+        "top": "#c72127",
+        "bottom": "#2a2a2e",
+        "accent": "#134d8b"
+      },
+      "operator": { "name": "cô Thục", "top": "#6f8f7a", "bottom": "#2f3640", "accent": "#2f3640" },
+      "examiner": {
+        "name": "thầy Khải",
+        "top": "#a8bbd0",
+        "bottom": "#3b3f46",
+        "accent": "#d9b46a"
+      }
+    }
+  }
+}

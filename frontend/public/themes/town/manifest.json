@@ -1,0 +1,101 @@
+{
+  "id": "town",
+  "name": "Thị trấn",
+  "brand": {
+    "programName": null,
+    "orgName": null,
+    "disclaimer": null
+  },
+  "place": { "name": "Hà Nội", "lat": 21.0285, "lon": 105.8542, "timeZone": "Asia/Ho_Chi_Minh" },
+  "fonts": {
+    "preload": [
+      "fonts/be-vietnam-pro-latin-400-normal.woff2",
+      "fonts/be-vietnam-pro-vietnamese-400-normal.woff2"
+    ]
+  },
+  "hero": {
+    "sources": [{ "src": "images/hero.svg", "width": 1600 }],
+    "width": 1600,
+    "height": 900,
+    "alt": "",
+    "credit": null
+  },
+  "campus": {
+    "ground": "#c8dcb0",
+    "path": "#ebe6da",
+    "plaza": "#efece4",
+    "water": "#9ccfd8",
+    "foliage": "#5c9a52",
+    "trunk": "#80603f",
+    "player": "#1d6b62",
+    "npc": "#b85f12",
+    "landmark": {
+      "archetype": "clock-tower",
+      "name": "Toà thị chính",
+      "wall": "#e9e2d3",
+      "trim": "#cfc5b0",
+      "roof": "#1d6b62",
+      "accent": "#b85f12",
+      "colonnades": false
+    },
+    "buildings": {
+      "library": { "wall": "#efe7d8", "trim": "#d6cbb6", "roof": "#1d6b62" },
+      "watchtower": { "wall": "#e4e8e6", "trim": "#c9d1ce", "roof": "#12343b" },
+      "market": { "wall": "#f3e6d6", "trim": "#dccbb5", "roof": "#b85f12" }
+    },
+    "lights": {
+      "dawn": {
+        "sky": "#e6e8ff",
+        "ground": "#cbc3cf",
+        "hemisphere": 1.72,
+        "sun": "#ffc2a6",
+        "sunIntensity": 1.55,
+        "sunDirection": [0.7, 0.55, 0.3],
+        "rim": 0.5
+      },
+      "day": {
+        "sky": "#d0e5ff",
+        "ground": "#bfb5a9",
+        "hemisphere": 3.054,
+        "sun": "#ffd059",
+        "sunIntensity": 1.561,
+        "sunDirection": [-0.35, 1, 0.75],
+        "rim": 0.25
+      },
+      "dusk": {
+        "sky": "#9dccff",
+        "ground": "#f4d9f2",
+        "hemisphere": 1.262,
+        "sun": "#ffb736",
+        "sunIntensity": 2.661,
+        "sunDirection": [-0.62, 0.55, 0.6],
+        "rim": 0.6
+      },
+      "night": {
+        "sky": "#8ea3d6",
+        "ground": "#606b8a",
+        "hemisphere": 0.95,
+        "sun": "#c9d6ff",
+        "sunIntensity": 0.42,
+        "sunDirection": [-0.35, 1, 0.75],
+        "rim": 0.1
+      }
+    },
+    "npcs": {
+      "guard": { "name": "chú bảo vệ", "top": "#eef0ec", "bottom": "#23292b", "accent": "#12343b" },
+      "registrar": {
+        "name": "chị Diệp",
+        "top": "#9c3d2c",
+        "bottom": "#2c2a28",
+        "accent": "#1d6b62"
+      },
+      "operator": { "name": "cô Thục", "top": "#7e9a86", "bottom": "#2f3640", "accent": "#2f3640" },
+      "examiner": {
+        "name": "thầy Khải",
+        "top": "#a9b8b2",
+        "bottom": "#3d4143",
+        "accent": "#d9b46a"
+      }
+    }
+  }
+}

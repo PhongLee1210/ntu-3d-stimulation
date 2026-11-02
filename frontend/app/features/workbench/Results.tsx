@@ -1,0 +1,594 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router";
+
+import { buttonClass } from "~/components/ui/button";
+import { CheckIcon, ChevronDownIcon, CrossIcon, StarIcon } from "~/components/ui/icons";
+
+import { domain, nodeIds, sameJson, type Env } from "./bench";
+import { Bar, Grade, hasControls, rich } from "./BenchView";
+import {
+  BACK_TO_LEVELS,
+  blockedPhrase,
+  diagnosisTarget,
+  FLAG_VI,
+  fmt,
+  groupDiagnosis,
+  knobName,
+  LABEL_VI,
+  DIAGNOSIS_VI,
+  HISTORY_VI,
+  LEVEL_COPY,
+  npcOf,
+  lowerFirst,
+  RECORDED_VI,
+  stepStatusText,
+  TOKENS_VI,
+  TOY,
+  toyName,
+  VIZ_STAMP,
+  WHY_MENU,
+} from "./copy";
+import { SlipResult, WhyMenu } from "./GuessSlip";
+import { Compare } from "./Compare";
+import { Debrief } from "./Debrief";
+import { History } from "./History";
+import type { NextPick } from "./diff";
+import { type Scale } from "./journey";
+import type { RunMark } from "./storage";
+import { RankJourney } from "./RankJourney";
+import { whyCase, type Slip } from "./guess";
+import { caseTitle } from "./RunPanel";
+import {
+  caseModel,
+  fallbackAnswers,
+  llmCalls,
+  outTokenSpread,
+  unfinished,
+  type CaseView,
+  type RunView,
+} from "./run";
+import { BLOCK_TYPES, type BlockType, type GoldReveal, type Graph } from "./schema";
+
+interface ResultsProps {
+  env: Env;
+  run: RunView;
+  /** The bench changed since this run (§8.6 "Kết quả cũ"). */
+  changed: boolean;
+  /** The graph this run used (ranks are read against its top_k / top_n). */
+  runGraph: Graph | null;
+  /** The bench now: a lesson on a detached slot says the move ("Thử gắn …"). */
+  graph: Graph;
+  backTo: string;
+  /** The guess slip that went with this run, if the player filled one (B1). */
+  slip: Slip | null;
+  /** This level's last scored runs, newest first, for the regression strip (N3). */
+  history: readonly RunMark[];
+  /** Puts a remembered configuration back on the bench, from a row of the strip. */
+  onDuplicate: (mark: RunMark) => void;
+  /** Persists the debrief's picks (N20) onto the run just recorded. */
+  onDebrief: (extras: { why?: number; next?: NextPick }) => void;
+  onEdit: () => void;
+  onFocusSlot: (type: BlockType, param?: string, phrase?: string | null) => void;
+  /** N16: opening a failing case's trace is a free look toward the next hint. */
+  onLook?: () => void;
+}
+
+/** Sao 3 evidence per forbidden label, in the words of `stars_vi` ("{n} câu …"). */
+const LABEL_EVIDENCE: Readonly<Record<string, string>> = {
+  stale_doc: "mang văn bản hết hiệu lực vào thùng",
+  cite_unknown: "trích nguồn không có trong thùng",
+};
+const asBlock = (block: string): BlockType | null =>
+  (BLOCK_TYPES as readonly string[]).includes(block) ? (block as BlockType) : null;
+
+/** Stars, the three conditions, cô Lan's diagnosis and every case (§8.6). */
+export function Results({
+  env,
+  run,
+  changed,
+  runGraph,
+  graph,
+  backTo,
+  slip,
+  history,
+  onDuplicate,
+  onDebrief,
+  onEdit,
+  onFocusSlot,
+  onLook,
+}: ResultsProps) {
+  const { level } = env;
+  // §3.7: gold belongs to the sample cases. The server redacts the rest (runs.py), so this is
+  // the second lock rather than the only one -- a stale deploy or a replayed log cannot turn a
+  // hidden case's rank table into something the player tunes top_k against.
+  const sample = new Set(run.cases.filter((c) => c.role === "visible").map((c) => c.id));
+  const revealed = Object.fromEntries(
+    Object.entries(run.report?.gold ?? {}).filter(([id]) => sample.has(id)),
+  );
+  // The reason menu comes before the diagnosis (L1 §11); one per run (the parent keys by run).
+  const [why, setWhy] = useState<"ask" | "answered" | "skipped">("ask");
+  // The stable index chosen, for the debrief's line 3 (N20) -- kept separately from `why` above
+  // so the existing ask/answered/skipped control flow does not have to change shape.
+  const [whyIndex, setWhyIndex] = useState<number | null>(null);
+  useEffect(() => {
+    if (why === "skipped") document.getElementById("wb-diagnosis-title")?.focus();
+  }, [why]);
+  const score = run.score;
+  if (!score) return null;
+  const asked = whyCase(run);
+  const menu = asked && WHY_MENU[level.id]?.[asked.why];
+  const ask = asked && menu && why !== "skipped" ? { c: asked.c, menu } : null;
+  const copy = LEVEL_COPY[level.id];
+  const first = run.cases.find((c) => c.id === level.s1_required[0]);
+  const skipped = unfinished(run).length;
+  const calls = llmCalls(run);
+  const served = fallbackAnswers(run);
+  const spread = outTokenSpread(run);
+  const conditions = [
+    {
+      ok: score.s1,
+      evidence: [
+        `${score.normal_passed}/${score.normal_total} câu thường đạt`,
+        ...(first && copy
+          ? [`câu #1 (${copy.asker}): ${first.graded?.passed ? "Đạt" : "Trượt"}`]
+          : []),
+      ].join(" · "),
+      bar: false,
+    },
+    {
+      ok: score.s2,
+      // X7: a fallback costs about 0,9k more output tokens on an L3 run (spec §7), so when one
+      // answered, this token figure is not a measure of the player's bench alone.
+      evidence: [
+        `${fmt(score.tokens)}/${fmt(score.budget)} token (${TOKENS_VI.usage})`,
+        ...(served.fallback > 0 ? ["hiệu chỉnh trên model chính"] : []),
+      ].join(" · "),
+      bar: true,
+    },
+    {
+      ok: score.s3,
+      evidence: [
+        `${score.traps_passed}/${score.traps_total} câu bẫy đạt`,
+        ...level.s3_forbidden_labels.map((label) => {
+          const count = run.cases.filter((c) => c.graded?.labels.includes(label)).length;
+          return `${count} câu ${LABEL_EVIDENCE[label] ?? lowerFirst(LABEL_VI[label] ?? label)}`;
+        }),
+      ].join(" · "),
+      bar: false,
+    },
+  ];
+
+  return (
+    <section aria-labelledby="wb-results" className="mt-12 border-t border-line pt-8">
+      {changed && (
+        <p className="mb-2 text-sm text-fg-muted">Kết quả của cấu hình trước khi bạn chỉnh.</p>
+      )}
+      <h2 id="wb-results" tabIndex={-1} className="text-2xl font-bold tracking-tight">
+        Kết quả ca tối nay
+      </h2>
+      {run.scope === "da_ghi" && (
+        <p className="mt-2 text-sm text-fg-muted">
+          {VIZ_STAMP.recorded}
+          {runGraph && !sameJson(runGraph, graph) && ` · ${RECORDED_VI.notYours}`}
+        </p>
+      )}
+      <div className="mt-4 flex items-center gap-3">
+        <span aria-hidden="true" className="flex gap-1">
+          {[1, 2, 3].map((star) => (
+            <StarIcon
+              key={star}
+              className={`size-7 shrink-0 ${star <= score.stars ? "fill-accent stroke-accent" : "fill-none stroke-line-strong"}`}
+            />
+          ))}
+        </span>
+        <p className="text-xl font-bold">{score.stars}/3 sao</p>
+      </div>
+
+      <ol className="mt-5 max-w-prose space-y-3">
+        {conditions.map((condition, index) => (
+          <li key={index} className="rounded-md border border-line bg-surface p-3">
+            <p className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <span className="font-semibold">Sao {index + 1}</span>
+              <span
+                className={`inline-flex items-center gap-1 text-sm font-semibold ${condition.ok ? "text-success" : "text-fg-muted"}`}
+              >
+                {condition.ok ? <CheckIcon /> : <CrossIcon />}
+                {condition.ok ? "Đạt" : "Chưa đạt"}
+              </span>
+            </p>
+            <p className="mt-1 text-sm">{level.stars_vi[index]}</p>
+            <p className="mt-1 text-sm text-fg-muted tabular-nums">{condition.evidence}</p>
+            {condition.bar && (
+              <div className="mt-2">
+                <Bar value={score.tokens} max={score.budget} />
+              </div>
+            )}
+            {index > 0 && !score.s1 && (
+              <p className="mt-1 text-sm text-fg-muted">Chỉ tính khi có sao 1.</p>
+            )}
+          </li>
+        ))}
+      </ol>
+
+      {skipped > 0 && (
+        <div className="mt-5 max-w-prose rounded-md border border-line bg-warning-tint p-4 text-sm">
+          <p className="font-semibold">Không phải lỗi của bạn</p>
+          <p className="mt-1">
+            {skipped} câu không chạy xong vì dịch vụ AI quá tải hoặc máy chủ hết lượt gọi hôm nay.
+            Số sao lượt này có thể thấp hơn mức cấu hình của bạn xứng đáng. Thử lại sau.
+          </p>
+        </div>
+      )}
+
+      {copy && score.stars >= 1 && (
+        <figure className="mt-5 max-w-prose rounded-md border border-line bg-surface p-4">
+          <figcaption className="text-sm font-bold">{npcOf(copy).name}</figcaption>
+          <blockquote className="mt-1">{score.s3 ? copy.win3 : copy.win1}</blockquote>
+        </figure>
+      )}
+
+      <p className="mt-5 max-w-prose text-sm text-fg-muted">
+        {calls.real === 0
+          ? "Mọi câu trả lời lấy từ kết quả đã lưu: cùng cấu hình thì cùng kết quả."
+          : `Lượt này gọi AI thật ${calls.real} lần${calls.replayed > 0 ? `, ${calls.replayed} câu lấy kết quả đã lưu` : ""}.`}
+      </p>
+
+      {slip && <SlipResult slip={slip} run={run} levelId={level.id} />}
+
+      <h3 id="wb-diagnosis-title" tabIndex={-1} className="mt-8 text-lg font-bold">
+        {copy ? npcOf(copy).name : "Cô Lan"} chẩn đoán
+      </h3>
+      {ask && (
+        <WhyMenu
+          c={ask.c}
+          menu={ask.menu}
+          // The failed case's number, or the run's case count for the budget menu, which has
+          // no case of its own. +1 so a seed divisible by the option count cannot land the
+          // answer first.
+          turn={(ask.c?.n ?? run.cases.length) + 1}
+          onAnswer={(index) => {
+            setWhy("answered");
+            setWhyIndex(index);
+          }}
+          onSkip={() => setWhy("skipped")}
+        />
+      )}
+      {ask && why === "ask" ? null : run.phase === "failed" ? (
+        // The stars came, then the run failed before its gold reveal (§8.6).
+        <p className="mt-2 max-w-prose text-sm">
+          Máy chủ đã chấm sao nhưng phần chẩn đoán chưa tới được. Chạy lại cùng cấu hình để xem: các
+          câu đã chạy xong dùng kết quả đã lưu.
+        </p>
+      ) : !run.report ? (
+        <p className="mt-2 text-sm text-fg-muted">Đang mở đáp án…</p>
+      ) : run.report.diagnosis.length === 0 ? (
+        <p className="mt-2 text-sm">Không có câu nào cần chẩn đoán.</p>
+      ) : (
+        <>
+          <p data-diagnosis-source className="mt-2 max-w-prose text-sm text-fg-muted">
+            {DIAGNOSIS_VI.source}
+          </p>
+          <ul aria-labelledby="wb-diagnosis-title" className="mt-3 max-w-prose space-y-3">
+            {groupDiagnosis(run.report.diagnosis).map((group) => {
+              const [first, ...rest] = group.cases.flatMap((id) => {
+                const c = run.cases.find((item) => item.id === id);
+                return c ? [c] : [];
+              });
+              const target = diagnosisTarget(env, group, revealed, runGraph);
+              // The blocked customer's lesson opens the very phrase that stopped them.
+              const phrase =
+                group.flag === "guard.blocked_benign" && first ? blockedPhrase(first) : null;
+              const showSlot = target !== null && hasControls(env, target.slot);
+              const attached = graph.nodes.some((node) => node.type === target?.slot);
+              return (
+                <li key={group.flag} className="rounded-md border border-line bg-surface p-3">
+                  <p>{rich(group.message_vi)}</p>
+                  {showSlot && target.why && <p className="mt-1 text-sm">{target.why}</p>}
+                  {rest.length > 0 && (
+                    <p className="mt-1 text-sm">
+                      Cùng lỗi ở{" "}
+                      {rest.map((c, index) => (
+                        <span key={c.id}>
+                          {index > 0 && ", "}
+                          <a
+                            href={`#cau-${c.n}`}
+                            className="font-semibold text-brand underline underline-offset-4"
+                          >
+                            câu #{c.n}
+                          </a>
+                        </span>
+                      ))}
+                      .
+                    </p>
+                  )}
+                  {(first ?? showSlot) && (
+                    <div className="mt-1 flex flex-wrap gap-x-5">
+                      {first && (
+                        <a
+                          href={`#cau-${first.n}`}
+                          className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline underline-offset-4"
+                        >
+                          Xem câu #{first.n}
+                        </a>
+                      )}
+                      {showSlot && (
+                        <button
+                          type="button"
+                          onClick={() => onFocusSlot(target.slot, target.param, phrase)}
+                          className={buttonClass("inline")}
+                        >
+                          {phrase
+                            ? `Xem cụm «${phrase}»`
+                            : attached
+                              ? `Xem ở ${knobName(target.slot, target.param)}`
+                              : `Thử gắn ${TOY[target.slot].name}`}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+
+      <h3 className="mt-8 text-lg font-bold">Từng câu</h3>
+      <div className="mt-3 grid gap-3 lg:grid-cols-2 chieu:lg:grid-cols-1">
+        {run.cases.map((c) => (
+          <CaseCard
+            key={c.id}
+            env={env}
+            c={c}
+            gold={revealed[c.id]}
+            runGraph={runGraph}
+            onLook={onLook}
+          />
+        ))}
+      </div>
+
+      {/* Projector mode keeps the score and the case grid, not one pair's history (R3, R8). */}
+      {history.length > 0 && (
+        <div className="chieu:hidden">
+          <h3 className="mt-8 text-lg font-bold">{HISTORY_VI.heading}</h3>
+          <History runs={history} onDuplicate={onDuplicate} />
+          {/* history[0] is the run just finished (recordRun prepends), history[1] the one
+              before it -- from the second run of a level on, there is a prior to compare. */}
+          {history[0] && history[1] && <Compare env={env} prev={history[1]} now={history[0]} />}
+        </div>
+      )}
+
+      {run.models && Object.keys(run.models).length > 0 && (
+        <p className="mt-6 text-sm text-fg-muted">
+          Model đã trả lời:{" "}
+          {Object.entries(run.models)
+            .map(([model, count]) => `${model} (${count} lời gọi)`)
+            .join(" · ")}
+        </p>
+      )}
+      {spread !== null && (
+        <p data-out-spread className="mt-6 max-w-prose text-sm text-fg-muted tabular-nums">
+          {TOKENS_VI.spread(fmt(spread.low), fmt(spread.high), spread.cases)}
+        </p>
+      )}
+      {served.fallback > 0 && (
+        <p data-fallback={served.fallback} className="max-w-prose text-sm text-fg-muted">
+          {`${served.fallback}/${served.answered} câu do model dự phòng trả lời. Sao 2 hiệu chỉnh` +
+            " trên model chính, nên số token của lượt này không phải thước đo cấu hình của bạn."}
+        </p>
+      )}
+
+      {/* cô Lan's hints are the pairs' to open at their own pace, not the room's (R3). */}
+      <div className="chieu:hidden">
+        <Debrief
+          env={env}
+          run={run}
+          slip={slip}
+          graph={graph}
+          ask={ask}
+          whyIndex={whyIndex}
+          onPick={onDebrief}
+        />
+      </div>
+
+      <div className="mt-8 flex flex-wrap gap-2">
+        <button type="button" onClick={onEdit} className={buttonClass("primary")}>
+          Chỉnh rồi chạy lại
+        </button>
+        <Link to={backTo} className={buttonClass("quiet")}>
+          {BACK_TO_LEVELS}
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function CaseCard({
+  env,
+  c,
+  gold,
+  runGraph,
+  onLook,
+}: {
+  env: Env;
+  c: CaseView;
+  gold: GoldReveal | undefined;
+  runGraph: Graph | null;
+  onLook: (() => void) | undefined;
+}) {
+  const failed = c.graded?.counted === true && !c.graded.passed;
+  const titleId = `cau-${c.n}-title`;
+  const served = caseModel(c);
+  return (
+    <article
+      id={`cau-${c.n}`}
+      aria-labelledby={titleId}
+      className="min-w-0 rounded-md border border-line bg-surface p-4"
+    >
+      <h4 id={titleId} className="font-semibold">
+        {caseTitle(c, env.level.id)}
+      </h4>
+      {c.question && <p className="mt-1 text-sm text-fg-muted">{c.question}</p>}
+      <Grade c={c} />
+      <p data-case-tokens className="mt-2 text-sm text-fg-muted tabular-nums">
+        {fmt(c.tokens.in + c.tokens.out)} token ({TOKENS_VI.usage})
+      </p>
+      <details
+        className="group mt-1 chieu:hidden"
+        onToggle={(event) => {
+          // L1 §11: the look that counts is the trace of a case that failed.
+          if (failed && event.currentTarget.open) onLook?.();
+        }}
+      >
+        <summary className="flex min-h-11 cursor-pointer items-center gap-1 text-sm font-semibold text-brand">
+          Xem vết chạy<span className="sr-only"> câu #{c.n}</span>
+          <ChevronDownIcon />
+        </summary>
+        <ol className="space-y-1 text-sm">
+          {Object.entries(c.steps).map(([node, step]) => {
+            const block = asBlock(step.block);
+            return (
+              <li key={node}>
+                <span className="font-semibold">{block ? toyName(block) : node}</span> ·{" "}
+                {stepStatusText(step.status, step.ms)}
+                {step.summary && <span className="text-fg-muted"> · {step.summary}</span>}
+              </li>
+            );
+          })}
+        </ol>
+        {/* X7: star 2 is calibrated on the primary model, so which model answered this case is
+            part of reading the grade. Same words as the bench's llm step, so the two agree. */}
+        {served && (
+          <p className="mt-2 text-sm" data-case-model={served.model}>
+            Model <code className="font-mono text-xs">{served.model}</code>
+            {served.replayed && (
+              <span className="ml-2 rounded-sm border border-line px-1.5 py-0.5 text-xs">
+                Kết quả đã lưu
+              </span>
+            )}
+          </p>
+        )}
+        {c.answer && (
+          <blockquote className="mt-2 border-l-2 border-line-strong pl-3 text-sm whitespace-pre-line">
+            {c.answer}
+          </blockquote>
+        )}
+        {gold && <GoldTrace env={env} c={c} gold={gold} runGraph={runGraph} />}
+      </details>
+    </article>
+  );
+}
+
+const RANKED: readonly BlockType[] = ["vector_search", "bm25_search", "fusion", "rerank"];
+
+function GoldTrace({
+  env,
+  c,
+  gold,
+  runGraph,
+}: {
+  env: Env;
+  c: CaseView;
+  gold: GoldReveal;
+  runGraph: Graph | null;
+}) {
+  // A question with no answer has no gold at all. An empty `gold_chunks` alone also means the
+  // chunker cut every answer sentence in half: the pieces still have ranks and the case its
+  // `ret.boundary_split` flag (§8.6).
+  const split = gold.gold_chunks.length === 0;
+  if (
+    split &&
+    c.role === "trap" &&
+    gold.flags.length === 0 &&
+    Object.values(gold.ranks).every((rank) => rank === null)
+  ) {
+    return (
+      <p className="mt-2 text-sm">
+        Quy chế không có đoạn nào trả lời câu này: trợ lý phải nói 'không có'.
+      </p>
+    );
+  }
+  const ids = nodeIds(env.level);
+  const params = (node: string) => runGraph?.nodes.find((n) => n.id === node)?.params ?? {};
+  // The two searches rank the whole store; Phễu and Kính lúp rank inside what reached them, so
+  // their numbers sit on their own smaller rulers (§8.6) and no hop across the two is a move.
+  const scales: Record<string, Scale> = {};
+  for (const type of RANKED) {
+    if (type === "vector_search" || type === "bm25_search") {
+      scales[ids[type]] = { kind: "corpus" };
+      continue;
+    }
+    const kept = type === "rerank" ? params(ids[type]).top_n : params(ids[type]).top_k;
+    scales[ids[type]] = { kind: "kept", size: typeof kept === "number" ? kept : null };
+  }
+  const lines = RANKED.flatMap((type) => {
+    const node = ids[type];
+    if (!(node in gold.ranks)) return [];
+    const rank = gold.ranks[node] ?? null;
+    const own = params(node);
+    const toy = toyName(type, own);
+    if (type === "vector_search" || type === "bm25_search") {
+      const hook = TOY[type].params?.top_k ?? "Móc kéo";
+      // Same verb as the diagnosis ("Tủ ngăn kéo không tìm thấy"): the passage is in the corpus.
+      const where = rank === null ? "không tìm thấy đoạn đáp án" : `hạng ${rank} trên toàn kho`;
+      const d = domain(env, type, "top_k");
+      const max = d?.kind === "range" ? `, tối đa ${d.max}` : "";
+      return [
+        `${toy}: ${where}, ${hook} lấy ${typeof own.top_k === "number" ? own.top_k : "?"}${max}`,
+      ];
+    }
+    const kept = type === "rerank" ? own.top_n : own.top_k;
+    const size = typeof kept === "number" ? kept : "?";
+    return [
+      rank === null
+        ? `${toy}: không có trong ${size} đoạn giữ lại`
+        : `${toy}: hạng ${rank} trong ${size} đoạn giữ lại`,
+    ];
+  });
+  // A case with two answer passages: `in_pack` is true once one is in, each rank is the best
+  // passage's, and the missing one has its own flag (grading.py).
+  const partial =
+    gold.in_pack && gold.flags.some((f) => f === "ret.gold_missing" || f === "ctx.gold_dropped");
+  return (
+    <div className="mt-2 space-y-1 text-sm">
+      <p>
+        {split
+          ? "Không đoạn nào của cách chia này chứa trọn câu đáp án."
+          : partial
+            ? "Đoạn đáp án: mới vào thùng một phần, còn thiếu đoạn khác."
+            : `Đoạn đáp án: ${gold.in_pack ? "đã vào thùng" : "không vào thùng"}.`}
+      </p>
+      {lines.length > 0 && (
+        <>
+          <p>
+            {split
+              ? "Hạng của mảnh đứng cao nhất qua từng khối:"
+              : gold.gold_chunks.length > 1
+                ? "Hạng của đoạn đáp án đứng cao nhất qua từng khối:"
+                : "Hạng qua từng khối:"}
+          </p>
+          <RankJourney
+            ranks={gold.ranks}
+            order={RANKED.map((type) => ids[type])}
+            toys={Object.fromEntries(
+              RANKED.map((type) => [ids[type], toyName(type, params(ids[type]))]),
+            )}
+            scales={scales}
+          />
+          <ul className="list-inside list-disc">
+            {lines.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {gold.flags.length > 0 && (
+        <ul className="list-inside list-disc text-fg-muted">
+          {gold.flags.map((flag) => (
+            <li key={flag}>{FLAG_VI[flag] ?? flag}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

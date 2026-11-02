@@ -1,0 +1,271 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { describePostError, loadLevelPage, newKey, postRun, previewRetrieval } from "./api";
+import { blocksJson, publicLevelJson } from "./test-fixtures";
+
+const headers = (entries: Record<string, string> = {}) => new Headers(entries);
+const NOW = Date.parse("2026-10-08T12:00:00Z");
+
+describe("describePostError", () => {
+  it("422 with issues: the server's title and its issues for the slots", () => {
+    const issue = {
+      code: "G05",
+      severity: "error",
+      node: "rr",
+      port: "docs",
+      message_vi: "*Xếp hạng lại* chưa có gì cắm vào cổng Tài liệu.",
+      concept_ref: "N8.rerank",
+    };
+    const error = describePostError(
+      422,
+      { detail: "Đồ thị chưa chạy được. Sửa các lỗi bên dưới rồi thử lại.", issues: [issue] },
+      headers(),
+    );
+    expect(error.title).toBe("Đồ thị chưa chạy được. Sửa các lỗi bên dưới rồi thử lại.");
+    expect(error.issues).toHaveLength(1);
+    expect(error.issues?.[0]).toMatchObject({ node: "rr", port: "docs" });
+    expect(error.retry).toBe(false);
+  });
+
+  it("422 from the framework (detail is a list, no issues): the generic box", () => {
+    const error = describePostError(
+      422,
+      { detail: [{ loc: ["header", "idempotency-key"], msg: "String should match pattern" }] },
+      headers(),
+    );
+    expect(error).toMatchObject({ title: "Chưa mở ca được", issues: null, retry: false });
+    expect(error.lines).toEqual(["Máy chủ đang gặp sự cố. Thử lại sau ít phút."]);
+    // The shape the local backend answers for a malformed Idempotency-Key (2026-10-08).
+    const local = describePostError(
+      422,
+      { detail: "Yêu cầu không hợp lệ.", fields: ["header.idempotency-key"] },
+      headers(),
+    );
+    expect(local).toMatchObject({ title: "Chưa mở ca được", issues: null });
+  });
+
+  it("429 as the server sends it: its detail, then the wait from Retry-After", () => {
+    // backend runs.py: RunBusyError.message_vi + Retry-After = RUN_DEADLINE_S (90 s).
+    const detail = "Máy chủ miễn phí chạy một lượt mỗi lúc và đang bận.";
+    const error = describePostError(429, { detail }, headers({ "Retry-After": "90" }), NOW);
+    expect(error.title).toBe("Máy chủ đang bận");
+    expect(error.lines).toEqual([detail, "Bạn có thể thử lại sau khoảng 2 phút."]);
+    expect(error.retry).toBe(true);
+  });
+
+  it("429 without Retry-After: the detail, no time, retry with the same key", () => {
+    const error = describePostError(
+      429,
+      { detail: "Đang có nhiều lượt chạy, bạn thử lại sau ít phút." },
+      headers(),
+      NOW,
+    );
+    expect(error.title).toBe("Máy chủ đang bận");
+    expect(error.lines).toEqual(["Đang có nhiều lượt chạy, bạn thử lại sau ít phút."]);
+    expect(error.lines.join(" ")).not.toContain("giây");
+    expect(error.retry).toBe(true);
+  });
+
+  it("429 with Retry-After in seconds or as an HTTP date", () => {
+    const seconds = describePostError(429, { detail: "Bận." }, headers({ "Retry-After": "30" }));
+    expect(seconds.lines).toContain("Bạn có thể thử lại sau khoảng 30 giây.");
+    const date = describePostError(
+      429,
+      { detail: "Bận." },
+      headers({ "Retry-After": "Thu, 08 Oct 2026 12:01:30 GMT" }),
+      NOW,
+    );
+    expect(date.lines).toContain("Bạn có thể thử lại sau khoảng 2 phút.");
+    const minutes = describePostError(429, null, headers({ "Retry-After": "120" }));
+    // No detail but a time: one plain line, then the time (no "sau ít phút" next to it).
+    expect(minutes.lines).toEqual([
+      "Đang có nhiều lượt chạy.",
+      "Bạn có thể thử lại sau khoảng 2 phút.",
+    ]);
+    // A daily quota is hours away: hours from 90 minutes on.
+    const hours = describePostError(429, null, headers({ "Retry-After": String(5 * 3600) }));
+    expect(hours.lines).toContain("Bạn có thể thử lại sau khoảng 5 giờ.");
+    const half = describePostError(429, null, headers({ "Retry-After": String(90 * 60) }));
+    expect(half.lines).toContain("Bạn có thể thử lại sau khoảng 1,5 giờ.");
+    const under = describePostError(429, null, headers({ "Retry-After": String(89 * 60) }));
+    expect(under.lines).toContain("Bạn có thể thử lại sau khoảng 89 phút.");
+    const junk = describePostError(429, { detail: "Bận." }, headers({ "Retry-After": "soon" }));
+    expect(junk.lines).toEqual(["Bận."]);
+  });
+
+  it("503 for each code keeps the config, and tells how to run without the reranker", () => {
+    for (const code of [
+      "llm_not_configured",
+      "index_stale",
+      "index_missing",
+      "rerank_unavailable",
+    ]) {
+      const error = describePostError(503, { detail: `Chi tiết ${code}.`, code }, headers());
+      expect(error.title).toBe("Máy chủ chưa sẵn sàng chạy");
+      expect(error.lines[0]).toBe(`Chi tiết ${code}.`);
+      expect(error.lines.at(-1)).toBe("Cấu hình của bạn vẫn được giữ trên máy này.");
+      expect(error.lines.includes("Tháo Kính lúp thì vẫn mở ca được.")).toBe(
+        code === "rerank_unavailable",
+      );
+      expect(error.retry).toBe(true);
+    }
+  });
+
+  it("409: no retry with that key", () => {
+    const error = describePostError(
+      409,
+      { detail: "Idempotency-Key này đã dùng cho một đồ thị khác." },
+      headers(),
+    );
+    expect(error).toMatchObject({ title: "Chưa mở ca được", retry: false, backLink: false });
+    expect(error.lines).toEqual(["Idempotency-Key này đã dùng cho một đồ thị khác."]);
+  });
+
+  it("404: the detail and a way back to the level list", () => {
+    const error = describePostError(404, { detail: "Không tìm thấy level." }, headers());
+    expect(error).toMatchObject({ title: "Chưa mở ca được", backLink: true });
+    expect(error.lines).toEqual(["Không tìm thấy level."]);
+  });
+
+  it("415, 5xx and a broken body: the generic box; only a 5xx or broken body retries", () => {
+    for (const status of [415, 500, 502, 504, -1]) {
+      const error = describePostError(status, { detail: "Chỉ nhận JSON." }, headers());
+      expect(error.title).toBe("Chưa mở ca được");
+      expect(error.lines).toEqual(["Máy chủ đang gặp sự cố. Thử lại sau ít phút."]);
+      // A gateway error may hide a run the server did start: the same key gets that run back.
+      expect(error.retry).toBe(status !== 415);
+    }
+  });
+
+  it("fetch threw: network box, retry with the same key", () => {
+    const error = describePostError(0, null, null);
+    expect(error.title).toBe("Không gửi được cấu hình");
+    expect(error.lines).toEqual(["Không kết nối được tới máy chủ. Kiểm tra mạng rồi thử lại."]);
+    expect(error.retry).toBe(true);
+  });
+});
+
+describe("newKey", () => {
+  it("makes a fresh key the server accepts", () => {
+    const a = newKey();
+    expect(a).toMatch(/^[A-Za-z0-9_-]{16,64}$/);
+    expect(a).toHaveLength(32);
+    expect(newKey()).not.toBe(a);
+  });
+});
+
+describe("previewRetrieval", () => {
+  const graph = '{"schema":1,"nodes":[],"edges":[]}';
+  const fact = {
+    kind: "retrieved",
+    items: [
+      {
+        chunk_id: "f22a1df7",
+        rank: 1,
+        score: 0.8032,
+        doc_id: "qcdt-2024",
+        dieu: 53,
+        khoan: [1],
+        hieu_luc: true,
+      },
+    ],
+  };
+
+  function stubFetch(status: number, body: unknown) {
+    const calls: { url: string; init: RequestInit | undefined }[] = [];
+    vi.stubGlobal("fetch", (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(new Response(JSON.stringify(body), { status }));
+    });
+    return calls;
+  }
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("returns one retrieved fact per retriever node", async () => {
+    const calls = stubFetch(200, { case: "lib-l1-v01", nodes: { vs: fact } });
+    const result = await previewRetrieval("grounded-citation", "lib-l1-v01", graph);
+    expect(result.ok && result.nodes.vs?.items[0]?.dieu).toBe(53);
+    expect(calls[0]?.url).toContain(
+      "/api/preview/retrieval?level=grounded-citation&case=lib-l1-v01",
+    );
+    expect(calls[0]?.init?.body).toBe(graph);
+  });
+
+  it("fails softly: a preview is a convenience, never a reason to block the bench", async () => {
+    stubFetch(404, { detail: "Chỉ xem trước được câu mẫu của màn này." });
+    expect((await previewRetrieval("grounded-citation", "lib-l1-h01", graph)).ok).toBe(false);
+  });
+
+  it("rejects a body the server did not shape as facts", async () => {
+    stubFetch(200, { case: "lib-l1-v01", nodes: { vs: { kind: "retrieved", items: [{}] } } });
+    expect((await previewRetrieval("grounded-citation", "lib-l1-v01", graph)).ok).toBe(false);
+  });
+});
+
+describe("postRun carries the run's scope (N2)", () => {
+  const body = '{"schema":1,"nodes":[],"edges":[]}';
+  const ok = { run_id: "0".repeat(32), created: true, issues: [] };
+
+  function stubPost() {
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", (url: string) => {
+      urls.push(url);
+      return Promise.resolve(new Response(JSON.stringify(ok), { status: 202 }));
+    });
+    return urls;
+  }
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("asks for a sample run when told to", async () => {
+    const urls = stubPost();
+    await postRun("grounded-citation", body, newKey(), "mau");
+    expect(urls[0]).toContain("scope=mau");
+  });
+
+  it("asks for a star run when not, so no url ever says scope=sao", async () => {
+    const urls = stubPost();
+    await postRun("grounded-citation", body, newKey());
+    expect(urls[0]).not.toContain("scope");
+  });
+
+  it("asks for one review case as the variant after hint 3 (N16)", async () => {
+    const urls = stubPost();
+    await postRun("grounded-citation", body, newKey(), { variant: "lib-l1-r04" });
+    expect(urls[0]).toContain("scope=bien_the&case=lib-l1-r04");
+  });
+});
+
+describe("loadLevelPage against the server's block list", () => {
+  /** The blocks the server lists, minus the unreleased ones it hides (registry.UNRELEASED). */
+  function stubServer(hidden: readonly string[]) {
+    const { blocks } = blocksJson() as { blocks: { type: string }[] };
+    vi.stubGlobal("fetch", (url: string) => {
+      const body = url.endsWith("/api/blocks")
+        ? { blocks: blocks.filter((b) => !hidden.includes(b.type)) }
+        : publicLevelJson(url.split("/").at(-1) ?? "");
+      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
+    });
+  }
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("opens a library level while the Watchtower's blocks are still hidden", async () => {
+    stubServer([
+      "pattern_guard",
+      "injection_classifier",
+      "tool_refund",
+      "human_approval",
+      "action_llm",
+    ]);
+    const page = await loadLevelPage("library", "grounded-citation");
+    expect(page.kind).toBe("ready");
+  });
+
+  it("refuses a level one of whose own blocks the server does not list", async () => {
+    stubServer(["context_packer"]);
+    const page = await loadLevelPage("library", "grounded-citation");
+    expect(page.kind).toBe("error");
+  });
+});

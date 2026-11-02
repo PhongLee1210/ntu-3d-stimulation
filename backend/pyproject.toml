@@ -1,0 +1,86 @@
+[project]
+name = "v-game-backend"
+version = "0.1.0"
+description = "V-Game backend API: campus zones, levels and (later) agent compilation."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi==0.162.0",
+    "uvicorn[standard]==0.54.0",
+    "pydantic==2.14.1",
+    "pydantic-settings==2.16.1",
+    "langgraph==1.2.17",
+    "google-genai==2.33.0",
+    "rank-bm25==0.2.2",
+    "numpy==2.5.4",
+    # engine/llm.py catches httpx errors; same version google-genai pulls in.
+    "httpx==0.28.1",
+]
+
+[project.scripts]
+# Precompute the 24 index variants, question vectors and rerank scores into INDEX_DIR (default:
+# the shipped src/vgame/engine/data/index). Needs the "models" group (in dev, so `uv sync`).
+vgame-build-index = "vgame.engine.index:main"
+# Record the starter run of every Library level from the replay seed (no Gemini call) into
+# frontend/public/runs/<level>.json, redacted for hidden and trap cases (engine/recorded.py).
+vgame-export-recorded-runs = "vgame.engine.recorded:main"
+# Score a Watchtower level's cases for the watchdog (injection_classifier), one Gemini call each,
+# into src/vgame/engine/data/guard_scores/<level>.json (watchtower.md §1.2). Needs GEMINI_API_KEY.
+vgame-score-guards = "vgame.engine.guard_scores:main"
+vgame-export-static-viz = "vgame.engine.static_viz:main"
+
+[dependency-groups]
+# Offline only (vgame-build-index, slow tests): e5 + jina through onnxruntime. The server
+# installs with `uv sync --no-dev` and never loads a model (engine-v0.2.md §14, 2026-10-08).
+models = ["fastembed==0.9.1"]
+dev = [
+    { include-group = "models" },
+    "ruff==0.17.2",
+    "mypy==2.4.0",
+    "pytest==9.1.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.19,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "vgame"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF", "N", "ASYNC", "PT"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "-m", "not slow"]
+markers = ["slow: downloads/loads real models; run with `uv run pytest -m slow`"]
+xfail_strict = true
+filterwarnings = [
+    "error",
+    # httpx is pinned at 0.28.1; Starlette 1.7's TestClient prefers httpx2.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated:UserWarning",
+    # Windows without Developer Mode: huggingface_hub falls back to copying model files.
+    "ignore:`huggingface_hub` cache-system uses symlinks:UserWarning",
+]
