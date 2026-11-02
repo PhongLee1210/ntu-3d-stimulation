@@ -7,15 +7,9 @@ import { Viz } from "./Viz";
 const LOOK: Readonly<Record<StampKind, string>> = {
   brick: "border-success bg-success-tint",
   fake: "border-danger bg-danger-tint",
-  // Dashed and unfilled: a sentence standing on nothing.
   bubble: "border-dashed border-line-strong",
 };
 
-/**
- * Máy đóng tem: the answer as bricks and bubbles (gameplay-direction §3, L1). A sentence with
- * a source the bin actually held is a brick; one citing an id the bin never had is the
- * fabrication the level is about; one citing nothing is a bubble.
- */
 export function Stamps({
   answer,
   included,
@@ -51,8 +45,6 @@ export function Stamps({
         </table>
       }
     >
-      {/* Not role="img": these are the assistant's own sentences, read as text. Giving the
-          list that role also orphaned every <li>, which axe caught on the workbench page. */}
       <p className="sr-only">{label}</p>
       <ul className="max-w-prose space-y-1">
         {parts.map((part, index) => (
@@ -65,7 +57,6 @@ export function Stamps({
             {part.kind === "fake" && (
               <span className="ml-1 font-semibold text-danger">{STAMP_VI.fake}</span>
             )}
-            {/* The bubble says it too: a dashed border on its own is style, not words. */}
             {part.kind === "bubble" && (
               <span className="ml-1 text-fg-muted">{STAMP_VI.bubble}</span>
             )}

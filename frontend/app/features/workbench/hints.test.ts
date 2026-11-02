@@ -265,7 +265,6 @@ describe("firstTouches", () => {
 describe("hint 3's gate (L1 §11, X28; roadmap B4 test list)", () => {
   const L2 = "chunk-tuning";
   const star1: Target = { key: "s1", star: 1, n: 1 };
-  // A ladder at hint 2 for star 1, with or without a look since.
   const atTwo = (looked: boolean, b: HintBook = loadHints(L2)): HintBook => {
     const two = open(look(open(b, "s1", 1, 1)), "s1", 1, 2);
     return looked ? look(two) : two;
@@ -311,10 +310,10 @@ describe("hint 3's gate (L1 §11, X28; roadmap B4 test list)", () => {
 
   it("prices the next attempt at a sample run when the latest counted failure was one", () => {
     const b = recordFail(atTwo(true), 1, "a", true);
-    expect(gate(b, 2)).toBe(3); // less than the 3 a sample run costs
-    expect(gate(b, 5)).toBeNull(); // a sample run still fits
+    expect(gate(b, 2)).toBe(3);
+    expect(gate(b, 5)).toBeNull();
     const star = recordFail(atTwo(true), 1, "a", false);
-    expect(gate(star, 12)).toBe(3); // less than a 13-call star run
+    expect(gate(star, 12)).toBe(3);
   });
 
   it("does not open on the pool while the pool is unknown", () => {

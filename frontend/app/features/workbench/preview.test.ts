@@ -8,14 +8,10 @@ describe("shouldPreview", () => {
   });
 
   it("previews once the bench no longer matches the run on show", () => {
-    // "stale" is exactly the state where the picture would otherwise be a lie: it shows what
-    // the last run pulled while the player is looking at a bench that would pull something else.
     expect(shouldPreview("stale")).toBe(true);
   });
 
   it("leaves the run's own facts alone while it runs and after it finishes", () => {
-    // A finished run measured the real thing; a preview of the same graph would only be a
-    // second, weaker copy of it.
     expect(shouldPreview("active")).toBe(false);
     expect(shouldPreview("done")).toBe(false);
   });
@@ -39,9 +35,6 @@ describe("previewableCase", () => {
   });
 
   it.each(["lib-l1-t01", "lib-l1-h01"])("does not ask the server for %s", (id) => {
-    // The route only previews samples, and rightly 404s for the rest. Sending the followed id
-    // raw meant that after opening one hidden row, every knob the player turned fired a
-    // guaranteed 404 and wiped the dome -- for the rest of the session, in silence.
     expect(previewableCase(id, cases, level)).toBe("lib-l1-v01");
   });
 

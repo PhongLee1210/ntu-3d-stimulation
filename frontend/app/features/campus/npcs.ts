@@ -3,21 +3,13 @@ import type { ZoneLocation, ZoneStatus } from "~/features/zones/schema";
 import type { NpcId } from "./layout";
 
 export interface NpcRole {
-  /** The dialog's line under the name; the same in every theme. */
   subtitle: string;
-  /** The zone the role leads to; null while its zone is only a candidate (npc-cast v0.4 §1). */
   zone: ZoneLocation | null;
-  /** First meeting: two turns. */
   greeting: readonly string[];
-  /** One turn per later visit, in turn, by the zone's status. */
   coming_soon: readonly string[];
   open: readonly string[];
 }
 
-/**
- * The four hub NPCs' lines, verbatim from npc-cast v0.4 §3: written, never generated, at most
- * two sentences a turn. Names live in the theme manifests only; no line names anyone there.
- */
 export const NPC_ROLES: Readonly<Record<NpcId, NpcRole>> = {
   guard: {
     subtitle: "Bảo vệ cổng chính, ca ngày",
@@ -93,10 +85,6 @@ export const NPC_ROLES: Readonly<Record<NpcId, NpcRole>> = {
   },
 };
 
-/**
- * What an NPC says on a visit (npc-cast v0.4 §3.5): the greeting the first time (`visits`, the
- * dialogs with them closed so far, is 0), then one turn of the set for their zone's status.
- */
 export function linesFor(id: NpcId, visits: number, status: ZoneStatus): readonly string[] {
   const role = NPC_ROLES[id];
   if (visits === 0) return role.greeting;

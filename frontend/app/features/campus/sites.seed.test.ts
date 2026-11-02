@@ -8,7 +8,6 @@ import { ZoneContentSchema } from "~/features/zones/schema";
 
 import { DEFAULT_STATUS } from "./sites";
 
-/** The scene draws before the zones API answers, so its fallback must say what the seed says. */
 describe("the campus fallback status", () => {
   it("matches the zones.json seed for every building", () => {
     const seed = v.parse(

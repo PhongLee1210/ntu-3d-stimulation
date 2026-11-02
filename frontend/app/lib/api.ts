@@ -12,10 +12,6 @@ export class ApiError extends Error {
   }
 }
 
-/**
- * GET a JSON resource from the backend and validate it against `schema`. Anything that
- * does not match the contract is treated as an error rather than rendered.
- */
 export async function getJson<TSchema extends v.GenericSchema>(
   path: string,
   schema: TSchema,

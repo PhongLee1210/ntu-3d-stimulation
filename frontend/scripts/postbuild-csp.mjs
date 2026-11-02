@@ -1,13 +1,3 @@
-// Generates security headers for the static build.
-//
-// React Router emits a few inline <script> elements (hydration context, scroll
-// restoration) and we add one for the theme bootstrap. A static host cannot inject a
-// nonce, so this script hashes every inline script and allows exactly those hashes.
-//
-// Outputs:
-//   build/client/_headers           Netlify / Cloudflare Pages header rules
-//   build/client/_redirects         404 for missing assets + SPA fallback for the same hosts
-//   build/security-headers.json     consumed by scripts/serve-build.mjs (local preview, e2e)
 import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -41,7 +31,6 @@ function inlineScriptHashes(html) {
 }
 
 function connectSources() {
-  // The campus weather: the browser fetches Open-Meteo itself (useSkyClock).
   const sources = ["'self'", "https://api.open-meteo.com"];
   const apiBase = process.env.VITE_API_BASE_URL;
   if (apiBase) sources.push(new URL(apiBase).origin);
@@ -99,8 +88,6 @@ const headersFile = [
 ].join("\n");
 
 await writeFile(path.join(clientDir, "_headers"), headersFile);
-// Missing hashed assets and theme files answer 404 instead of the SPA HTML, which would
-// otherwise be cached as an immutable asset. Hosts skip a rule when a real file exists.
 await writeFile(
   path.join(clientDir, "_redirects"),
   "/assets/*  /404.html  404\n/themes/*  /404.html  404\n/*  /__spa-fallback.html  200\n",

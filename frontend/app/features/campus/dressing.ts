@@ -1,13 +1,5 @@
 import type { Box, Vec2 } from "./layout";
 
-/*
- * Where the CC0 props of public/models/props.json stand (dressing placement plan §2, 2026-10-09).
- * Data only, no three.js: layout.ts reads the blocking boxes, scene/useDressing.ts builds the mesh,
- * dressing.test.ts checks every spot against the layout. Literal numbers only, so layout.ts can
- * import this module without a cycle.
- */
-
-/** Scene palette colours a prop may take (scene/palette.ts); each one derives from the manifest. */
 export type ColourSlot =
   | "foliage"
   | "hedge"
@@ -23,12 +15,6 @@ export type ColourSlot =
   | "mk.wall"
   | "lib.roof";
 
-/**
- * Material name → colour slot, per prop. Shrubs take the hedge green: the plan's rose-pink
- * `bloom` read as pink candy floss (owner, 2026-10-09). The parasol's palette swatches: canopy →
- * market roof, pole → dark, table frame and foot → trunk, table top → landmark trim; a white pole
- * under the red cap read as a toadstool (review r1).
- */
 export const PROP_COLOURS: Readonly<Record<string, Readonly<Record<string, ColourSlot>>>> = {
   "bush-large": { grass: "hedge" },
   bush: { grass: "hedge" },
@@ -61,31 +47,16 @@ export const PROP_COLOURS: Readonly<Record<string, Readonly<Record<string, Colou
   "arrow-sign": { Wood: "lm.wall", Main_Dark: "trunk" },
 };
 
-/** Turn (degrees) taking a prop's own front to +z; the food stall's counter faces its +x. */
 export const PROP_YAW0: Readonly<Record<string, number>> = { "food-stall": -90 };
 
-/** x, z and the facing in degrees: 0 faces +z, 90 faces +x (like `Site.facing`). */
 type At = readonly [x: number, z: number, yaw?: number];
 
 export interface Dressing {
-  /** Key in props.json. */
   prop: string;
-  /** Uniform, or [along x, height, along z] before the turn. */
   scale: number | readonly [number, number, number];
-  /** Foot height; 0 when left out. */
   y?: number;
-  /** Half sizes of the OBSTACLES box each copy adds; left out, the player walks past. */
   block?: readonly [halfX: number, halfZ: number];
-  /**
-   * The sun-shadow caster of each copy (campus.ts buildShadows): half sizes along x and z (like
-   * `block`, never turned), the heights it spans, and an octagon for a crown or canopy.
-   */
   shade?: { half: readonly [number, number]; y: readonly [number, number]; round?: true };
-  /**
-   * What the placement checks hold it to: `ground` clear of everything; `stacked` on another
-   * prop's spot; `fence` in the strip inside the front fence; `shore` on the lake's rim; `water`
-   * wholly in the lake; `pier` from the shore into it.
-   */
   kind: "ground" | "stacked" | "fence" | "shore" | "water" | "pier";
   at: readonly At[];
 }
@@ -93,7 +64,6 @@ export interface Dressing {
 const row = (z: number, xs: readonly number[]): At[] => xs.map((x) => [x, z]);
 
 export const DRESSING: readonly Dressing[] = [
-  // A: front left by the gate, the rose garden and the lawn beside the plaza.
   {
     prop: "bush-large",
     scale: 2.2,
@@ -129,7 +99,6 @@ export const DRESSING: readonly Dressing[] = [
       [-5.4, 8],
     ],
   },
-  // B: the market's food stall and café, the lake.
   {
     prop: "food-stall",
     scale: 1.3,
@@ -140,7 +109,6 @@ export const DRESSING: readonly Dressing[] = [
   },
   {
     prop: "parasol-table",
-    // Taller than the plan's 2.5, so the canopy clears the table.
     scale: [2.3, 2.9, 2.3],
     block: [0.4, 0.4],
     shade: { half: [0.4, 0.46], y: [0.87, 1.3], round: true },
@@ -152,7 +120,6 @@ export const DRESSING: readonly Dressing[] = [
     ],
   },
   { prop: "bench", scale: 2, kind: "ground", at: [[12.9, 4.9, 14]] },
-  // Deck about 0.15 over the water (y 0.008); the posts sink into the opaque slab.
   { prop: "dock", scale: 2.2, y: -0.75, kind: "pier", at: [[11.24, 7.64, 36]] },
   { prop: "boat", scale: 0.12, kind: "water", at: [[12.44, 7.78, 36]] },
   {
@@ -181,7 +148,6 @@ export const DRESSING: readonly Dressing[] = [
     prop: "reed",
     scale: 2,
     kind: "water",
-    // Three clumps on the rim.
     at: [
       [7.11, 11.59],
       [7.5, 11.31],
@@ -206,7 +172,6 @@ export const DRESSING: readonly Dressing[] = [
       [6.5, 12],
     ],
   },
-  // C: the library's lawn, the west edge, the beds behind the library.
   {
     prop: "gazebo",
     scale: 1.3,
@@ -261,7 +226,6 @@ export const DRESSING: readonly Dressing[] = [
       [-12.9, -10.7],
     ],
   },
-  // D: behind the east wing, by the running track.
   {
     prop: "palm",
     scale: 1.5,
@@ -293,12 +257,10 @@ export const DRESSING: readonly Dressing[] = [
   },
 ];
 
-/** One box per copy of a blocking prop; layout.ts adds them to OBSTACLES. */
 export const DRESSING_BLOCKS: readonly Box[] = DRESSING.flatMap(({ block, at }) =>
   block ? at.map(([x, z]) => ({ x, z, halfX: block[0], halfZ: block[1] })) : [],
 );
 
-/** Six more of the campus lamp (buildTerrain), on the new seating and the gate strip. */
 export const DRESSING_LAMPS: readonly Vec2[] = [
   { x: -10.4, z: 11.5 },
   { x: -6.8, z: 11.5 },

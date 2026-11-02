@@ -9,11 +9,8 @@ import type { CaseRole, Fact } from "./schema";
 
 type Item = Extract<Fact, { kind: "retrieved" }>["items"][number];
 
-// Not focusable: a chip does nothing when activated, and a tab stop that leads nowhere is
-// worse than none. The table itself is what a screen reader navigates, row by row.
 const CHIP = "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-xs";
 
-/** A stage a code either reached or did not. The gap is what the picture is for. */
 function Cell({
   row,
   state,
@@ -43,15 +40,6 @@ function Cell({
   );
 }
 
-/**
- * Sổ đối chiếu trích dẫn (N13): the codes the bench pulled, the codes it packed and the codes
- * the answer cited, one column each, so a code that falls out between two rows leaves a hole
- * where it was. The hole is the evidence.
- *
- * Samples only. A hidden case's `pack.included` and `llm.cited_ids` both reach the client, and
- * a valid citation code for such a case points straight at its gold chunk (roadmap B0) -- so
- * aligning its cited row against its bin row would give away where the answer sits.
- */
 export function CitationLedger({
   caseRole,
   ranked,
@@ -59,7 +47,6 @@ export function CitationLedger({
   cited,
   gold,
 }: {
-  /** Named caseRole, not role: a prop called `role` is linted as the ARIA attribute. */
   caseRole: CaseRole | null;
   ranked: readonly Item[];
   included: readonly string[];
@@ -73,7 +60,6 @@ export function CitationLedger({
 
   return (
     <div className="mt-3">
-      {/* Focusable for the same reason as the figure frame's table: it scrolls. */}
       <div
         tabIndex={0}
         role="region"

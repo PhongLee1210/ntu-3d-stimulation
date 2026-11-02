@@ -24,7 +24,6 @@ export type LevelPageData =
   | { kind: "not-found"; zoneId: string | null }
   | { kind: "error"; zoneId: string | null };
 
-/** Everything `/play/:zoneId/:levelId` can show, as data (§8.7). Never rejects. */
 export async function loadLevelPage(
   zoneId: string | undefined,
   levelId: string | undefined,
@@ -38,8 +37,6 @@ export async function loadLevelPage(
     ]);
     if (level.zone !== zone) return { kind: "not-found", zoneId: zone };
     const byType = new Map(list.map((block) => [block.type, block]));
-    // Only the level's own blocks: the server hides the ones not yet released (registry
-    // UNRELEASED), and every lookup into env.blocks is for a type the level allows.
     if (!level.allowed_blocks.every((type) => byType.has(type))) {
       return { kind: "error", zoneId: zone };
     }
@@ -48,7 +45,6 @@ export async function loadLevelPage(
       blocks: Object.fromEntries(byType) as Record<BlockType, BlockSpec>,
     };
     const starter = starterBench(env);
-    // A starter the bench cannot draw is a contract mismatch, not something to half-render.
     if (!starter) return { kind: "error", zoneId: zone };
     return { kind: "ready", zoneId: zone, env, starter };
   } catch (error) {
@@ -58,7 +54,6 @@ export async function loadLevelPage(
   }
 }
 
-/** 32 hex chars. `crypto.randomUUID` exists only in secure contexts (W9). */
 export function newKey(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -67,11 +62,8 @@ export function newKey(): string {
 export interface PostError {
   title: string;
   lines: string[];
-  /** "Thử lại" resends the same body with the same key (W9). */
   retry: boolean;
-  /** 404: link back to the level list. */
   backLink: boolean;
-  /** 422 with the validator's issues: shown on the slots. */
   issues: Issue[] | null;
 }
 
@@ -88,10 +80,6 @@ function retryAfterSeconds(value: string | null | undefined, now: number): numbe
   return Number.isNaN(at) ? null : Math.max(0, Math.round((at - now) / 1000));
 }
 
-/**
- * What the aside shows for a failed `POST /api/runs` (§6.1). `status` 0 means fetch threw.
- * Pure, so every branch is unit-tested.
- */
 export function describePostError(
   status: number,
   json: unknown,
@@ -132,7 +120,6 @@ export function describePostError(
           },
         );
       }
-      // A daily quota resets hours away: "khoảng 5 giờ", not "khoảng 300 phút".
       const wait =
         seconds < 60
           ? `${seconds} giây`
@@ -158,23 +145,14 @@ export function describePostError(
     case 415:
       return box("Chưa mở ca được", [GENERIC]);
     default:
-      // 5xx, a gateway page (the API sleeps behind a proxy) or a broken body: the server may
-      // have started the run, and the same key returns that run instead of a second one.
       return box("Chưa mở ca được", [GENERIC], { retry: true });
   }
 }
 
-/**
- * `POST /api/runs?level=<id>` with the exact body and key (a retry reuses both).
- *
- * `scope` is left off a star run rather than sent as "sao": the server reads its absence that
- * way, and the key it hashes includes the scope, so the two steps of one Mở ca never collide.
- */
 export async function postRun(
   levelId: string,
   body: string,
   key: string,
-  /** "mau": the samples (N2). A case id: that review case as the variant after hint 3 (N16). */
   scope?: "mau" | { variant: string },
 ): Promise<PostResult> {
   const tail =
@@ -214,10 +192,6 @@ export async function postRun(
   return { ok: false, error: describePostError(response.status, json, response.headers) };
 }
 
-/**
- * Never rejects. True when nothing is left running: 202 ends the stream with
- * run.failed{cancelled}; 404 (gone) and 409 (already over) need nothing.
- */
 const PreviewSchema = v.object({
   case: v.string(),
   nodes: v.record(v.string(), FactSchema),
@@ -227,19 +201,10 @@ export type PreviewResult =
   | { ok: true; nodes: Readonly<Record<string, Extract<Fact, { kind: "retrieved" }>>> }
   | { ok: false };
 
-/**
- * What the bench would pull right now, from the shipped index alone (backend README,
- * vom-sao-v0.1 §4). No AI call and no quota, so a knob can answer in well under a second.
- *
- * Every failure is the same `{ ok: false }`: a preview is a convenience beside the real run,
- * and nothing about it should ever stop the player editing the bench.
- */
 export async function previewRetrieval(
   levelId: string,
   caseId: string,
   body: string,
-  /** Aborted when the bench moves on: the answer is already unusable, and the instance the
-   *  preview runs on has 0,1 CPU to spend on work nobody is waiting for. */
   signal: AbortSignal | null = null,
 ): Promise<PreviewResult> {
   const url = `${API_BASE}/api/preview/retrieval?level=${encodeURIComponent(levelId)}&case=${encodeURIComponent(caseId)}`;
@@ -252,7 +217,7 @@ export async function previewRetrieval(
       signal,
     });
   } catch {
-    return { ok: false }; // including the abort above: a dropped preview is simply no preview
+    return { ok: false };
   }
   if (!response.ok) return { ok: false };
   const json: unknown = await response.json().catch(() => null);
@@ -277,10 +242,6 @@ export function cancelRun(runId: string, options: { keepalive?: boolean } = {}):
 
 export const eventsUrl = (runId: string) => `${API_BASE}/api/runs/${runId}/events`;
 
-/**
- * `GET /api/quota` (roadmap-v0.4 §5.1). Null when the API is asleep, down or off contract: the
- * bench then shows no number rather than a made-up one, and the server's DailyCap still holds.
- */
 export async function fetchQuota(signal?: AbortSignal): Promise<ServerQuota | null> {
   try {
     const response = await fetch(`${API_BASE}/api/quota`, {
@@ -300,10 +261,8 @@ const RefundRefusedSchema = v.object({ detail: v.string(), code: v.string() });
 export type RefundResult =
   | { ok: true; refunded: number }
   | { ok: false; code: string; message: string }
-  /** Network, 404 or an answer off contract: nothing was promised, so nothing is said. */
   | { ok: false; code: null; message: null };
 
-/** `POST /api/quota/refund {run_id}`. Never rejects. */
 export async function claimRefund(runId: string): Promise<RefundResult> {
   const unknown = { ok: false, code: null, message: null } as const;
   let response: Response;

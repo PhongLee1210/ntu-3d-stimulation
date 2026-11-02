@@ -6,7 +6,6 @@ import { buttonClass } from "./ui/button";
 import { Wordmark } from "./Wordmark";
 
 interface SiteHeaderProps {
-  /** In-page anchors, shown on wide screens only. */
   sections?: readonly { href: string; label: string }[];
 }
 

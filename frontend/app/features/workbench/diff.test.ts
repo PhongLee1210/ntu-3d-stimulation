@@ -44,9 +44,6 @@ describe("diffGraphs", () => {
   });
 
   it("sees a card swap as two slots, not as one prompt", () => {
-    // graphFromBench joins the three cards into one llm.system_prompt string, so a plain param
-    // compare reads swapping two cards as ONE change -- and the label would wrongly offer a
-    // single cause.
     const keys = Object.keys(l3.level.prompt_cards);
     const [a, b] = [keys[0], keys[1]];
     if (a === undefined || b === undefined) throw new Error("L3 has fewer than two cards");
@@ -58,7 +55,6 @@ describe("diffGraphs", () => {
   });
 
   it("counts swapping one card for another as one change of that slot", () => {
-    // L3's starter fills all three slots (G1, G2, G3), so this is the common case.
     const changes = diffGraphs(l3, graph(start()), graph(setCard(start(), 0, "G4")));
     expect(changes).toEqual([{ kind: "card", slot: 0, from: "G1", to: "G4" }]);
   });
@@ -87,8 +83,6 @@ describe("diffGraphs", () => {
           : n,
       ),
     };
-    // Same configuration, written two ways: a phantom change here would make every rerun look
-    // like a two-variable experiment.
     expect(diffGraphs(l3, g, stripped)).toEqual([]);
   });
 });
@@ -108,10 +102,6 @@ describe("nextPickOptions", () => {
   });
 
   it("offers nothing for a block the level locked, even one whose knobs are not individually fixed", () => {
-    // In every shipped level a locked node's params also happen to be fixed one by one via
-    // param_limits, so the node-level lock alone is never exercised by real content -- nothing
-    // stops a future level from locking a node without fixing every param. Locking
-    // vector_search's own node id, with its param_limits left untouched, isolates that guard.
     const locked = {
       ...l3,
       level: { ...l3.level, locked_nodes: [...l3.level.locked_nodes, "vs"] },
@@ -199,9 +189,7 @@ describe("the W1 net's phrases", () => {
       ["Thêm một cụm vào Lưới cụm từ", "add"],
       ["Rút một cụm khỏi Lưới cụm từ", "remove"],
     ]);
-    // An empty net has nothing to pull out.
     expect(labels(netted())).toEqual([["Thêm một cụm vào Lưới cụm từ", "add"]]);
-    // A full net has nothing left to add.
     expect(labels(netted(...w1.level.phrase_tray))).toEqual([
       ["Rút một cụm khỏi Lưới cụm từ", "remove"],
     ]);

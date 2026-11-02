@@ -5,8 +5,6 @@ import * as v from "valibot";
 
 import { ZoneContentSchema, type Zone } from "./schema";
 
-// Single source of truth for zone content is the backend seed file; the pre-rendered
-// landing page reads it at build time instead of keeping a second copy.
 const CONTENT_FILE = path.resolve(
   process.cwd(),
   "..",

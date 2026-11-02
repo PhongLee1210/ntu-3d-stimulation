@@ -4,12 +4,6 @@ import { JOURNEY_VI } from "./copy";
 import { Viz } from "./Viz";
 import { rankJourney, type Move, type Scale } from "./journey";
 
-/**
- * Up is out of the deep end, down is back into it. The first stop, an unmoved rank and a hop
- * between two different populations are all neutral: colouring a rescaled hop would claim a
- * comparison the two numbers do not support (§8.6, and the prose list beside this says which
- * scale each rank was taken on).
- */
 const TONE: Readonly<Record<Move, string>> = {
   start: "border-line-strong",
   up: "border-success bg-success-tint",
@@ -18,8 +12,6 @@ const TONE: Readonly<Record<Move, string>> = {
   rescaled: "border-line-strong",
 };
 
-/** A typographic arrow, not an icon font: colour alone would leave the direction unreadable to
- *  a player who cannot separate the green from the red. */
 const ARROW: Readonly<Record<Move, string>> = {
   start: "",
   up: "↑",
@@ -28,11 +20,6 @@ const ARROW: Readonly<Record<Move, string>> = {
   rescaled: "",
 };
 
-/**
- * "Đường đời hạng": the answer passage's place in each block that ranked it, in the order the
- * graph ran them (gameplay-direction §3, L3). The numbers are the engine's own; the colour only
- * says which way the last hop went.
- */
 export function RankJourney({
   ranks,
   order,
@@ -41,9 +28,7 @@ export function RankJourney({
 }: {
   ranks: Readonly<Record<string, number | null>>;
   order: readonly string[];
-  /** Node id -> the toy's name, so the picture speaks the bench's language. */
   toys: Readonly<Record<string, string>>;
-  /** Node id -> the population that block ranked over. Without it no hop is called a move. */
   scales?: Readonly<Record<string, Scale>>;
 }): ReactElement | null {
   const steps = rankJourney(ranks, order, scales);
@@ -59,9 +44,6 @@ export function RankJourney({
         : JOURNEY_VI.kept(scale.size);
   };
 
-  // No sr-only copy of the journey: the table form below carries the same ranks with the scale
-  // each was taken on, so a second scale-free reading would be duplicate and worse. The chips
-  // are the picture of it, and stay out of the a11y tree.
   return (
     <Viz
       caption={JOURNEY_VI.caption}

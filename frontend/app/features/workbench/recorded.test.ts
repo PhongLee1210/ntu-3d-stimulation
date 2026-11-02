@@ -22,8 +22,6 @@ describe("parseRecorded", () => {
     expect(parseRecorded("chunk-tuning", 1, file("grounded-citation"))).toBeNull();
   });
 
-  // The log is a frozen answer to a question the level asks. A level whose cases or rules moved
-  // on would be answered with last month's run, silently.
   it("refuses a log recorded against an older version of the level", () => {
     expect(parseRecorded("grounded-citation", 2, file("grounded-citation"))).toBeNull();
   });

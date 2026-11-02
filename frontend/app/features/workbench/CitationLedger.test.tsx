@@ -15,7 +15,6 @@ const item = (chunkId: string, rank: number) => ({
   hieu_luc: true,
 });
 
-/** The cells of one stage row, in column order. */
 const row = (stage: string) =>
   [...(document.querySelector(`[data-row="${stage}"]`)?.querySelectorAll("td") ?? [])].map(
     (td) => td as HTMLElement,
@@ -36,11 +35,9 @@ const draw = (props: Partial<Parameters<typeof CitationLedger>[0]> = {}) =>
 describe("CitationLedger", () => {
   it("keeps every stage on the same column, so a dropped code leaves a hole", () => {
     draw();
-    // One column per code, in rank order, with the fabricated code last.
     expect(row("pull").map((td) => td.dataset.id)).toEqual(["a1", "b2", "c3", "zz"]);
     expect(row("bin").map((td) => td.dataset.id)).toEqual(["a1", "b2", "c3", "zz"]);
     expect(row("cite").map((td) => td.dataset.id)).toEqual(["a1", "b2", "c3", "zz"]);
-    // b2 was pulled and then left out: its bin cell is a marked gap, not c3 shifted left.
     expect(row("bin")[1]?.dataset.state).toBe("gap");
     expect(row("bin")[2]?.dataset.state).toBe("here");
   });
@@ -52,7 +49,6 @@ describe("CitationLedger", () => {
     expect(ghost?.querySelector("[class*='border-dashed']")).not.toBeNull();
     expect(ghost?.querySelector("svg")).not.toBeNull();
     expect(ghost?.textContent).toContain("không có trong thùng");
-    // A code that was really in the bin must not look the same.
     const real = row("cite")[0];
     expect(real?.dataset.state).toBe("here");
     expect(real?.querySelector("[class*='border-dashed']")).toBeNull();
@@ -74,8 +70,6 @@ describe("CitationLedger", () => {
     draw({ gold: { chunks: ["c3"], ranks: {}, flags: [], visible: true } });
     expect(row("pull")[2]?.textContent).toContain("Đoạn đáp án");
     expect(row("pull")[0]?.textContent).not.toContain("Đoạn đáp án");
-    // Once, on the row that pulled it: the bin and the answer rows say something else about
-    // the same code, and repeating the marker three times says nothing new.
     expect(document.body.textContent.match(/Đoạn đáp án/g)).toHaveLength(1);
     expect(row("bin")[2]?.textContent).not.toContain("Đoạn đáp án");
     cleanup();
@@ -84,8 +78,6 @@ describe("CitationLedger", () => {
   });
 
   it.each(["hidden", "trap"] as const)("draws nothing for a %s case", (role) => {
-    // A hidden case's valid citation code points straight at the gold chunk (roadmap B0), so
-    // lining its cited row up against its bin row would hand over where the answer sits.
     const { container } = draw({ caseRole: role });
     expect(container.innerHTML).toBe("");
   });
@@ -96,11 +88,7 @@ describe("CitationLedger", () => {
   });
 
   it("gives no chip a tab stop, because activating one does nothing", () => {
-    // Same call as StarDome's sr-only list: no handler is wired, so a focusable chip would be
-    // a stop that leads nowhere. The table is the thing a screen reader walks.
     draw();
-    // Narrow to the cells: the scrolling wrapper around the table is focusable on purpose,
-    // because there a tab stop is how a keyboard user scrolls.
     expect(document.querySelectorAll("td [tabindex], th [tabindex]")).toHaveLength(0);
   });
 });

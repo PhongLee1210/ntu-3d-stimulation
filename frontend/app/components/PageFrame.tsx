@@ -9,7 +9,6 @@ import { AUTHOR } from "~/lib/site";
 
 const WIDTH = { "3xl": "max-w-3xl", "6xl": "max-w-6xl" } as const;
 
-/** Focus the page's h1 without scrolling: ScrollRestoration owns the scroll position. */
 function focusHeading() {
   const heading = document.querySelector<HTMLElement>("main h1");
   if (!heading) return;
@@ -17,7 +16,6 @@ function focusHeading() {
   heading.focus({ preventScroll: true });
 }
 
-/** Plain page frame (art §9.1): back link and theme toggle on top, author line at the bottom. */
 export function PageFrame({
   back,
   backLabel,
@@ -30,18 +28,12 @@ export function PageFrame({
   children: ReactNode;
 }) {
   const box = `mx-auto ${WIDTH[width]} px-4 sm:px-6`;
-  // A client-side route change leaves focus on <body> and announces nothing: move it to the new
-  // page's h1. Keyed on the pathname, not the history entry: a hash link ("Xem câu #2") and
-  // Back to it stay on the page, where the player's place matters. Not on the first page of a
-  // visit (key "default"), where reading starts at the top.
   const { key, pathname } = useLocation();
   const [firstPage] = useState(key === "default");
   useEffect(() => {
     if (!firstPage) focusHeading();
   }, [pathname, firstPage]);
 
-  // "Thử lại" on a failed load swaps the page under the focused button, which drops focus to
-  // <body>; the location does not change, so the effect above does not run.
   const revalidation = useRevalidator().state;
   const was = useRef(revalidation);
   useEffect(() => {
@@ -49,12 +41,8 @@ export function PageFrame({
     was.current = revalidation;
   }, [revalidation]);
 
-  // The next page's data is loading (a sleeping API can take half a minute): say so. "Thử lại"
-  // is a revalidation, which leaves the navigation idle.
   const loading = useNavigation().state === "loading" || revalidation === "loading";
 
-  // Projector mode (lesson plan R1): the frame owns the class and the way out, so a zone page
-  // and a level behave the same.
   const projector = useProjector();
   useProjectorClass(projector.on);
 
@@ -79,8 +67,6 @@ export function PageFrame({
           {loading ? "Đang tải trang…" : ""}
         </p>
         {loading && (
-          // Fixed: the header scrolls away, and "Vào màn" can be far down a phone's page. With
-          // reduced motion a still bar across the screen, not a strip stuck at a third.
           <div
             data-page-loading
             aria-hidden="true"

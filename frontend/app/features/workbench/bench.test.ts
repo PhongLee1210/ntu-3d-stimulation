@@ -81,7 +81,6 @@ describe("bench <-> graph", () => {
       return graph;
     };
     const vs = (graph: Graph) => graph.nodes.find((node) => node.id === "vs");
-    // A value outside the level's domain.
     expect(
       benchFromGraph(
         env,
@@ -91,7 +90,6 @@ describe("bench <-> graph", () => {
         }),
       ),
     ).toBeNull();
-    // Two nodes of one type.
     expect(
       benchFromGraph(
         env,
@@ -101,7 +99,6 @@ describe("bench <-> graph", () => {
         }),
       ),
     ).toBeNull();
-    // A prompt line that is not a card.
     expect(
       benchFromGraph(
         env,
@@ -111,7 +108,6 @@ describe("bench <-> graph", () => {
         }),
       ),
     ).toBeNull();
-    // A block this level has not opened.
     expect(
       benchFromGraph(
         env,
@@ -120,7 +116,6 @@ describe("bench <-> graph", () => {
         }),
       ),
     ).toBeNull();
-    // Edges the bench would not produce.
     expect(
       benchFromGraph(
         env,
@@ -130,7 +125,6 @@ describe("bench <-> graph", () => {
   });
 });
 
-// Watchtower W1: the desk's graph shape (watchtower.md §3.2).
 describe("the W1 desk on the bench", () => {
   const env = testEnv("direct-injection");
   const roundTrips = (graph: Graph) => {
@@ -214,7 +208,6 @@ describe("domain", () => {
       step: 1,
       integer: true,
     });
-    // Falsy fixed values are real values.
     expect(domain(l1, "vector_search", "score_threshold")).toEqual({ kind: "fixed", value: 0 });
     expect(domain(l1, "chunker", "only_in_force")).toEqual({ kind: "fixed", value: false });
     expect(domain(l1, "context_packer", "cite_ids")).toEqual({ kind: "toggle" });
@@ -230,7 +223,6 @@ describe("domain", () => {
       kind: "choice",
       options: [128, 256, 512, 1024],
     });
-    // Fixed by the block schema itself, not only by a level limit.
     const schemaOnly = { ...l2, level: { ...l2.level, param_limits: {} } };
     expect(domain(schemaOnly, "context_packer", "on_overflow")).toEqual({
       kind: "fixed",
@@ -263,7 +255,6 @@ describe("PublicLevel", () => {
       expect(level.s1_required).toEqual(rules.s1_required);
       expect(level.s3_forbidden_labels).toEqual(rules.s3_forbidden_labels);
     }
-    // L3's info case runs but earns no star: 12 counted, 13 AI calls.
     expect(testEnv("article-number-lookup").level.case_counts).toEqual({
       normal: 10,
       trap: 2,

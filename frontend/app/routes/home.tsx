@@ -19,14 +19,11 @@ const SECTIONS = [
   { href: "#giang-vien", label: "Giảng viên" },
 ] as const;
 
-// Pre-rendered at build time from the backend content seed.
 export async function loader() {
   return { zones: await loadZoneContent() };
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  // A free-tier API sleeps when idle; waking it here hides most of the cold start before the
-  // visitor opens the campus. Fire and forget: the landing page needs no answer.
   useEffect(() => {
     void fetch(`${import.meta.env.VITE_API_BASE_URL ?? ""}/api/health`).catch(() => undefined);
   }, []);

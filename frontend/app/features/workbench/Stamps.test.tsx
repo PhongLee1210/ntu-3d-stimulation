@@ -28,7 +28,6 @@ describe("what the stamp wall actually draws", () => {
     [...document.querySelectorAll("[data-stamp]")].map((el) => el.getAttribute("data-stamp"));
 
   it("marks each sentence with its own kind, so the three read apart", () => {
-    // One sentence per kind: in the bin, not in the bin, and citing nothing at all.
     render(
       <Stamps
         answer="Nộp trước hai tuần [aa11]. Theo Điều 47 [zz99]. Thường thì trường nào cũng vậy."
@@ -41,7 +40,6 @@ describe("what the stamp wall actually draws", () => {
   it("gives a fabricated citation a different look from a sourced one", () => {
     render(<Stamps answer="A [aa11]. B [zz99]." included={["aa11"]} />);
     const [brick, fake] = [...document.querySelectorAll("[data-stamp]")] as HTMLElement[];
-    // A sighted player has to be able to tell them apart; L1 is the level about exactly this.
     expect(brick?.className).not.toBe(fake?.className);
   });
 
@@ -60,8 +58,6 @@ describe("the stamp wall in its frame", () => {
   });
 
   it("gives an unsourced sentence words of its own, not only a dashed border", () => {
-    // L1 §12: "TRƯỢT vì thiếu nguồn: bong bóng vỡ, chữ 'không có nguồn'". Until now only the
-    // fabricated kind printed words, so a bubble was style-only.
     render(<Stamps answer="Thường thì trường nào cũng vậy." included={[]} />);
     const bubble = document.querySelector('[data-stamp="bubble"]');
     expect(bubble?.textContent).toContain("không có nguồn");

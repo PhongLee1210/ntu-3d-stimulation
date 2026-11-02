@@ -10,10 +10,6 @@ async function readJson(file: string): Promise<unknown> {
   return JSON.parse(await readFile(file, "utf8")) as unknown;
 }
 
-/**
- * Keeps only the packs named in `packs` (comma-separated, e.g. VITE_THEME_PACKS="town" for a
- * public build that must not ship a brand-licensed pack). Empty or unset keeps every pack.
- */
 export function selectPacks<T extends { id: string }>(themes: T[], packs: string | undefined): T[] {
   const wanted = (packs ?? "")
     .split(",")
@@ -27,10 +23,6 @@ export function selectPacks<T extends { id: string }>(themes: T[], packs: string
   return themes.filter((theme) => wanted.includes(theme.id));
 }
 
-/**
- * Build-time loader: reads the theme index and every listed manifest from public/themes.
- * Theme packs are data only; adding or removing one never touches application code.
- */
 export async function loadThemeCatalog(
   preferredDefault: string | undefined,
   packs?: string,

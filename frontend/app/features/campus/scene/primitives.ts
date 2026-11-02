@@ -21,12 +21,6 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import { PLAZA } from "../layout";
 import { shade, type Light } from "./palette";
 
-/*
- * Shape helpers with the argument order of art-direction §5.0, and the part pipeline that
- * bakes light into vertex colours (§2.3–§2.4). Every helper returns a fresh geometry in
- * absolute world coordinates.
- */
-
 export function box(x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) {
   return new BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate(
     (x0 + x1) / 2,
@@ -56,7 +50,6 @@ export function circle(r: number, seg: number, x: number, y: number, z: number) 
   return flat(new CircleGeometry(r, seg), x, y, z);
 }
 
-/** Flat ring; after laying it down, θ points to (cos θ, −sin θ), so 7π/6 + 2π/3 is the +z arc. */
 export function ring(
   rIn: number,
   rOut: number,
@@ -76,7 +69,6 @@ export function rect(x0: number, x1: number, z0: number, z1: number, y: number) 
 
 export type Face = "+x" | "+z" | "-x" | "-z";
 
-/** Turn about y taking a shape built facing +z to face `face`: a turn, never a mirror. */
 const TURN: Record<Face, number> = {
   "+z": 0,
   "+x": Math.PI / 2,
@@ -84,14 +76,8 @@ const TURN: Record<Face, number> = {
   "-x": -Math.PI / 2,
 };
 
-/** Outward from a façade: +0.01 on the +x/+z walls, −0.01 on the −x/−z walls. */
 export const outward = (face: Face) => (face.startsWith("+") ? 0.01 : -0.01);
 
-/**
- * Stands a flat shape (built facing +z) on a façade, 0.01 out from the wall; `u` runs along the
- * wall (world x on a z face, world z on an x face). Half-discs stay arched upwards and a clock on
- * the −z wall still reads clockwise, since the shape is turned, not mirrored.
- */
 export function onFace(geometry: BufferGeometry, face: Face, plane: number, u: number, v: number) {
   geometry.rotateY(TURN[face]);
   return face.endsWith("z")
@@ -111,10 +97,6 @@ export function disc(face: Face, plane: number, u: number, v: number, r: number,
   return onFace(new CircleGeometry(r, seg), face, plane, u, v);
 }
 
-/**
- * Annular sector around `centre` (the plaza: the colonnade curve), extruded from y0 to y1.
- * Angle 0 points to -z, π/2 to +x.
- */
 export function arcSlab(
   rIn: number,
   rOut: number,
@@ -140,7 +122,6 @@ export function lathe(profile: readonly [number, number][], seg: number, x: numb
   return new LatheGeometry(points, seg).translate(x, 0, z);
 }
 
-/** Flat ground triangles with per-vertex colours, wound to face up (skirts, contact discs). */
 export function groundTriangles(
   vertices: readonly { x: number; z: number; color: Color }[],
   y: number,
@@ -154,7 +135,6 @@ export function groundTriangles(
       (typeof vertices)[number],
       (typeof vertices)[number],
     ];
-    // Upward normal needs (q - p) × (r - p) to have positive y.
     const ny = (q.z - p.z) * (r.x - p.x) - (q.x - p.x) * (r.z - p.z);
     if (ny < 0) tri = [p, r, q];
     for (const v of tri) {
@@ -169,16 +149,9 @@ export function groundTriangles(
 }
 
 export interface PartStyle {
-  /**
-   * One colour, or `top` for faces with n.y > 0.5 and `side` for the rest. Omitted: keep the
-   * source's own vertex colours (ground triangles).
-   */
   color?: Color | { top: Color; side: Color } | undefined;
-  /** Darken the foot of vertical faces (fake ambient occlusion, art §2.4). */
   ao?: boolean;
-  /** Lit from inside: skip the bake (windows, lamps, clock face). */
   emissive?: boolean;
-  /** Distance haze: after shading, pull this far towards the top-face light (v0.3 §5.2). */
   haze?: number;
 }
 
@@ -187,11 +160,6 @@ const UP = new Vector3(0, 1, 0);
 const base = new Color();
 const k = new Color();
 
-/**
- * Converts a primitive into a flat-shaded, non-indexed part with a `color` attribute.
- * With a `light`, bakes it into the colours (MeshBasicMaterial groups); with `null`, keeps plain
- * colours and normals for MeshLambertMaterial (figures, trees), which the scene lights shade.
- */
 export function part(source: BufferGeometry, style: PartStyle, light: Light | null) {
   const geometry = source.index ? source.toNonIndexed() : source;
   const own = geometry.getAttribute("color") as BufferAttribute | undefined;
@@ -230,9 +198,7 @@ export function part(source: BufferGeometry, style: PartStyle, light: Light | nu
   return geometry;
 }
 
-/** Merges parts into one geometry (one draw call). */
 export function merge(parts: readonly BufferGeometry[]): BufferGeometry {
-  // Every part carries the same attributes (position + colour, plus normal for "lit").
   const merged = mergeGeometries([...parts]);
   for (const piece of parts) piece.dispose();
   return merged;

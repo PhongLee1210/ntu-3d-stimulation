@@ -10,7 +10,6 @@ import { linesFor, NPC_ROLES } from "./npcs";
 
 const THEMES = path.resolve(process.cwd(), "public", "themes");
 const read = (file: string): unknown => JSON.parse(readFileSync(path.join(THEMES, file), "utf8"));
-/** Every NPC display name of every pack: theme data only, never core code (npc-cast v0.4 §2). */
 const NAMES = parseThemeIndex(read("index.json")).flatMap(({ id }) =>
   Object.values(parseThemeManifest(read(`${id}/manifest.json`)).campus.npcs).map((n) => n.name),
 );
@@ -21,7 +20,6 @@ const ALL_LINES = Object.values(NPC_ROLES).flatMap((role) => [
   ...role.open,
 ]);
 
-/** Sentences: runs ending in . ? ! (a closing quote may follow), or at the end of the line. */
 const sentences = (line: string) => line.split(/(?<=[.?!])['"”]?\s+/).filter(Boolean);
 
 describe("NPC lines (npc-cast v0.4 §3)", () => {

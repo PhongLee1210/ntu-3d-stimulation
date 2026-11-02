@@ -128,7 +128,6 @@ describe("parseQuota", () => {
 
 describe("resetsAtLabel", () => {
   it("prints the refill in the player's own clock", () => {
-    // The test runner's zone is whatever the machine says; compare against the same clock.
     const at = "2026-11-02T00:00:00+00:00";
     const local = new Date(at);
     const expected = `${String(local.getHours()).padStart(2, "0")}:${String(local.getMinutes()).padStart(2, "0")}`;

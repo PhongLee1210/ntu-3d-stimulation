@@ -13,7 +13,6 @@ export interface ThemeState extends ThemeCatalog {
   activeId: string;
   setTheme: (id: string) => void;
   cycleTheme: () => void;
-  /** Adopt the theme saved by this viewer, if any. Call after hydration. */
   restoreSavedTheme: () => void;
 }
 
@@ -23,23 +22,16 @@ function readSavedTheme(): string | null {
   try {
     return window.localStorage.getItem(THEME_STORAGE_KEY);
   } catch {
-    return null; // storage blocked (private mode, browser policy)
+    return null;
   }
 }
 
 function saveTheme(id: string): void {
   try {
     window.localStorage.setItem(THEME_STORAGE_KEY, id);
-  } catch {
-    // Saving is a convenience; the theme still applies for this visit.
-  }
+  } catch {}
 }
 
-/**
- * Leaves the React-rendered default stylesheet alone and loads any other theme through a
- * separate override link. Each theme.css scopes its tokens under :root[data-theme=...], so
- * the default one stays harmless while another theme is active.
- */
 function applyToDocument(id: string, defaultId: string): void {
   document.documentElement.setAttribute("data-theme", id);
   const existing = document.getElementById(THEME_OVERRIDE_ID);
@@ -59,10 +51,6 @@ function applyToDocument(id: string, defaultId: string): void {
   document.head.appendChild(link);
 }
 
-/**
- * The store starts on the build-time default so the first client render matches the
- * pre-rendered HTML; `restoreSavedTheme` then switches to the viewer's saved choice.
- */
 export function createThemeStore(catalog: ThemeCatalog) {
   return createStore<ThemeState>()((set, get) => ({
     ...catalog,
@@ -86,8 +74,6 @@ export function createThemeStore(catalog: ThemeCatalog) {
     restoreSavedTheme: () => {
       const saved = readSavedTheme();
       if (saved && saved !== get().activeId && saved in get().manifests) {
-        // The inline bootstrap script normally applied this already; repeat it in case
-        // the script did not run.
         applyToDocument(saved, get().defaultId);
         set({ activeId: saved });
       }

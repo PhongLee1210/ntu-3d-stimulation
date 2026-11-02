@@ -36,7 +36,6 @@ function renderLoader() {
 }
 const loader = () => document.querySelector("[data-scene-loader]");
 const status = () => screen.getByRole("status");
-/** act() with a void callback stays synchronous (a returned value would make it async). */
 const run = (fn: () => unknown) => {
   act(() => {
     fn();
@@ -55,7 +54,7 @@ beforeEach(() => {
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
   }));
-  vi.advanceTimersByTime(1000); // the page has been up for a second
+  vi.advanceTimersByTime(1000);
   beginScene();
 });
 
@@ -88,7 +87,7 @@ describe("SceneLoader", () => {
     run(() => advanceScene(STAGE.boot));
     expect(screen.getByText("Bước 3/5")).toBeDefined();
     run(() => vi.advanceTimersByTime(300));
-    expect(status().textContent).toBe("Đang tải bộ dựng 3D"); // fast steps are never announced
+    expect(status().textContent).toBe("Đang tải bộ dựng 3D");
   });
 
   it("builds pieces only as their signals arrive, and draws all of them with reduced motion", () => {
@@ -113,12 +112,10 @@ describe("SceneLoader", () => {
   it("draws everything a signal owes in the same render and final state, before any tick", () => {
     renderLoader();
     run(() => advanceScene(STAGE.build));
-    // No timer has run: the main thread may be frozen right after this signal.
     expect(document.querySelectorAll(".k-tile:not(.is-set), .k-flat:not(.is-set)")).toHaveLength(0);
     expect(document.querySelectorAll(".k-tree.is-set").length).toBeGreaterThan(0);
     expect(document.querySelectorAll(".k-bldg.is-set, .k-bldg.is-built")).toHaveLength(0);
 
-    // The first frame is being drawn: no building may sit on the first keyframe of its rise.
     run(() => advanceScene(STAGE.paint));
     const buildings = document.querySelectorAll(".k-bldg");
     expect(buildings.length).toBeGreaterThan(0);
@@ -133,7 +130,7 @@ describe("SceneLoader", () => {
     expect(screen.getByText(LABELS[STAGE.done])).toBeDefined();
     run(() => vi.advanceTimersByTime(220));
     expect(loader()).toBeNull();
-    expect(vi.getTimerCount()).toBe(0); // no tip, tick or slow timer outlives it
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("never shows when the scene is ready within the appear delay", () => {
@@ -163,7 +160,6 @@ describe("SceneLoader", () => {
     const card = () => screen.getByRole("region").textContent;
     run(() => advanceScene(STAGE.build));
     const before = card().replace(LABELS[STAGE.build], "");
-    // Starved timers fire late, at the handover.
     run(() => vi.advanceTimersByTime(20_000));
     run(() => advanceScene(STAGE.done));
     expect(card().replace(LABELS[STAGE.done], "")).toBe(before.replace("Bước 4/5", "Bước 5/5"));

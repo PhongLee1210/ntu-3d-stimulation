@@ -13,8 +13,6 @@ function scene(id: Parameters<typeof testEnv>[0]) {
   return found;
 }
 
-// Each level opens on its own scene (level-identity-v0.5 §2), drawn from scenario §3: the
-// shape of the thing on screen is what tells one level from the next, so the kind is asserted.
 describe("the scene at the head of each level", () => {
   it("pins L1's fabricated line on the notice board, word for word", () => {
     const found = scene("grounded-citation");
@@ -55,7 +53,6 @@ describe("the scene at the head of each level", () => {
   });
 });
 
-// Cờ thế giới (scenario §3): once the level has a star, its scene shows the trouble fixed.
 describe("the scene once the level has a star", () => {
   function wonScene(id: Parameters<typeof testEnv>[0], won: boolean) {
     render(<Brief level={testEnv(id).level} won={won} />);

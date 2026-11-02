@@ -1,17 +1,3 @@
-// Vercel build: runs the normal build, then writes Vercel's Build Output API layout
-// (.vercel/output), because Vercel ignores the _headers/_redirects files that
-// postbuild-csp.mjs writes for other hosts.
-//
-// - Public deploys ship only the neutral town theme unless VITE_THEME_PACKS/VITE_DEFAULT_THEME
-//   say otherwise, so a brand-licensed pack is never published by forgetting an env var.
-// - Security headers (including the per-build CSP hashes) come from build/security-headers.json.
-// - /api/* is proxied to VG_API_ORIGIN, so the API stays same-origin (CSP connect-src 'self'; the
-//   only other source is Open-Meteo, which the browser calls for the campus weather).
-// - Theme packs not listed in VITE_THEME_PACKS are left out of the deployment.
-// - The route table itself lives in scripts/vercel-routes.mjs (tested separately): /play gets
-//   its pre-rendered page, /assets is immutable for a year, /themes, /models and /runs are
-//   cached for a day, unknown /assets and /themes paths answer 404, and every other path gets
-//   the SPA fallback.
 import { execSync } from "node:child_process";
 import { cp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";

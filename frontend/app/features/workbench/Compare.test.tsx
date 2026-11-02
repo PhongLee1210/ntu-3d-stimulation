@@ -41,10 +41,8 @@ describe("Compare", () => {
         ])}
       />,
     );
-    // The one change may be offered as the cause.
     expect(screen.getByText(/Móc kéo là thứ duy nhất đổi/)).toBeDefined();
     expect(screen.getByText(/Câu #2: Trượt → Đạt/)).toBeDefined();
-    // The required multi-variable sentence must not appear here.
     expect(screen.queryByText(/chưa biết thứ nào gây ra/)).toBeNull();
   });
 
@@ -53,7 +51,6 @@ describe("Compare", () => {
     const after = setParam(l3, setAttached(before, "rerank", true), "vector_search", "top_k", 7);
     render(<Compare env={l3} prev={run(body(before), [])} now={run(body(after), [])} />);
     expect(screen.getByText("Đổi 2 thứ cùng lúc, chưa biết thứ nào gây ra")).toBeDefined();
-    // No single variable is singled out as the cause.
     expect(screen.queryByText(/là thứ duy nhất đổi/)).toBeNull();
   });
 

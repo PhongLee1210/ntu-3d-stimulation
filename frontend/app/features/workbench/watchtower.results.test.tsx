@@ -7,15 +7,12 @@ import { Results } from "./Results";
 import type { RunView } from "./run";
 import { frame, parseSse, readText, replay, testEnv } from "./test-fixtures";
 
-/** The diagnosis of a W1 run points at the layer that can fix it (watchtower.md §3.6). */
-
 afterEach(cleanup);
 
 const env = testEnv("direct-injection");
 const frames = parseSse(readText("e2e", "data", "run-w1-starter.sse"));
 const finished = frames.findIndex((f) => f.event === "run.finished");
 
-/** The starter run, finished with this diagnosis; the net's block on t04 is streamed first. */
 function run(diagnosis: object[], blockedBy?: string): RunView {
   const net = blockedBy
     ? [

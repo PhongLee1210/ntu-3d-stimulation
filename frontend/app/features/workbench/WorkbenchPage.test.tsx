@@ -64,7 +64,7 @@ describe("useRecordStars", () => {
     const hook = record(replay(short.slice(0, scored)));
     expect(recordStars).not.toHaveBeenCalled();
     hook.rerender({ run: replay(short.slice(0, scored + 1)) });
-    hook.rerender({ run: replay(short) }); // run.finished: same run, no second call
+    hook.rerender({ run: replay(short) });
     expect(recordStars).toHaveBeenCalledExactlyOnceWith("library", "grounded-citation", 1);
     expect(readProgress()).toEqual({ library: { "grounded-citation": 1 } });
 
@@ -95,7 +95,6 @@ describe("useRecordStars", () => {
 });
 
 describe("usePreview", () => {
-  /** One retrieved item in the shape the route really sends, so the parser is exercised too. */
   const item = (chunkId: string) => ({
     chunk_id: chunkId,
     rank: 1,
@@ -106,11 +105,9 @@ describe("usePreview", () => {
     hieu_luc: true,
   });
 
-  /** Answers every preview POST with a chunk id naming the body it was asked about. */
   function serveByBody(fail = false) {
     return vi.fn((_url: string, init?: RequestInit) => {
       if (fail) return Promise.resolve(new Response("", { status: 503 }));
-      // previewRetrieval always sends the graph as a JSON string, never a Blob or a stream.
       const body = typeof init?.body === "string" ? init.body : "";
       const payload = {
         case: "lib-l1-v01",
@@ -139,10 +136,7 @@ describe("usePreview", () => {
     await act(() => vi.advanceTimersByTimeAsync(400));
     expect(pulled(result.current)).toBe("chunk-for-top_k=3");
 
-    // The player drags the knob: a different variant, so different chunks and different scores.
     rerender({ body: "top_k=9" });
-    // Before: the dome went on drawing the 3-pull and printing its cosines beside a slot that
-    // already read 9 -- a quarter of a second on a warm API, 33 s on a cold Render free one.
     expect(result.current).toBeNull();
 
     await act(() => vi.advanceTimersByTimeAsync(400));
@@ -165,11 +159,8 @@ describe("usePreview", () => {
     vi.stubGlobal("fetch", bad);
     rerender({ body: "b" });
     await act(() => vi.advanceTimersByTimeAsync(400));
-    // A failed preview is no preview -- and never the previous bench's, which is what the key
-    // is for; nothing here needs clearing.
     expect(result.current).toBeNull();
 
-    // Undo the knob: the picture for this exact bench is the one already measured.
     vi.stubGlobal("fetch", serveByBody(true));
     rerender({ body: "a" });
     expect(pulled(result.current)).toBe("chunk-for-a");
@@ -195,9 +186,7 @@ describe("usePreview stops work the bench no longer needs", () => {
       "fetch",
       vi.fn((_url: string, init?: RequestInit) => {
         if (init?.signal) signals.push(init.signal);
-        return new Promise<Response>(() => {
-          /* never settles: the instance is still working on it */
-        });
+        return new Promise<Response>(() => undefined);
       }),
     );
     const { rerender, unmount } = renderHook(
@@ -209,8 +198,6 @@ describe("usePreview stops work the bench no longer needs", () => {
     expect(signals[0]?.aborted).toBe(false);
 
     rerender({ body: "top_k=9" });
-    // The answer to the old question is already unusable; the 0,1-CPU instance should not
-    // finish computing it.
     expect(signals[0]?.aborted).toBe(true);
 
     await act(() => vi.advanceTimersByTimeAsync(400));
@@ -232,7 +219,6 @@ describe("useRecordHistory", () => {
 
   it("keeps the run once it is scored, with the graph that ran and each case's verdict", () => {
     const hook = record(replay(short.slice(0, scored)));
-    // Nothing yet: a run still going has no result to remember.
     expect(loadHistory(l1.level.id)).toEqual([]);
 
     hook.rerender({ run: replay(short.slice(0, scored + 1)) });
@@ -247,8 +233,6 @@ describe("useRecordHistory", () => {
   });
 
   it("remembers which case failed, which is the whole point of the strip", () => {
-    // The committed short run passes both cases, so a fixture that cannot fail would let
-    // `passed: true` for everything through.
     const run = replay(short.slice(0, scored + 1));
     if (!run) throw new Error("no run");
     const withFailure: RunView = {
@@ -263,7 +247,7 @@ describe("useRecordHistory", () => {
 
   it("writes one entry per run, however many events arrive after the score", () => {
     const hook = record(replay(short.slice(0, scored + 1)));
-    hook.rerender({ run: replay(short) }); // run.finished: the same run
+    hook.rerender({ run: replay(short) });
     expect(loadHistory(l1.level.id)).toHaveLength(1);
 
     const next = runReducer(null, { kind: "reset", runId: "f".repeat(32) });
@@ -273,7 +257,6 @@ describe("useRecordHistory", () => {
   });
 
   it("never persists a fact or a gold reveal, which the server hands over per role", () => {
-    // A localStorage copy would outlive the role gate the server and Results both apply.
     record(replay(short.slice(0, scored + 1)));
     const raw = window.localStorage.getItem(`vg.history.v1.${l1.level.id}`) ?? "";
     expect(raw).not.toContain("gold");
@@ -292,8 +275,6 @@ describe("useRecordHistory and the live bench", () => {
   const scored = short.findIndex((f) => f.event === "run.scored");
 
   it("writes nothing more when the player edits the bench after a scored run", () => {
-    // The hook takes the graph that RAN. Watching the live body would add an entry on every
-    // knob turn, filling the five slots with one run.
     const run = replay(short.slice(0, scored + 1));
     const hook = renderHook(
       (props: { body: string }) => useRecordHistory(l1.level.id, run, props.body),
@@ -318,8 +299,6 @@ describe("a run the daily cap cut short is not a star attempt", () => {
   });
 
   it("does not overwrite the stored stars, and does not join the history", () => {
-    // §3.3: "không tính là một lần thử sao (… không ghi đè kết quả sao)". The run is still
-    // graded and still on screen; it just is not a result.
     const run = replay(capped);
     renderHook(() => {
       useRecordStars(l1.level, run);
@@ -331,8 +310,6 @@ describe("a run the daily cap cut short is not a star attempt", () => {
   });
 
   it("still records a run whose cases the player's own budget skipped", () => {
-    // The paired positive: an ordinary failure must still be a result, or "never record"
-    // would pass the test above.
     const ownBudget = short.map((f) => {
       if (f.event !== "case.graded") return f;
       const data = JSON.parse(f.data) as Record<string, unknown>;
@@ -348,8 +325,6 @@ describe("a run the daily cap cut short is not a star attempt", () => {
   });
 
   it("leaves a case that never ran out of the strip instead of calling it a failure", () => {
-    // `passed: c.graded?.passed ?? false` labelled an ungraded case as broken, which is a
-    // verdict the run never reached.
     const run = replay(
       short.slice(
         0,
@@ -368,8 +343,6 @@ describe("useRecordHistory reports what it wrote", () => {
   const scored = short.findIndex((f) => f.event === "run.scored");
 
   it("hands the fresh list back, because the store is otherwise write-only", () => {
-    // Without this the strip would show nothing until the next page load: loadHistory has no
-    // other caller on the page.
     const seen: RunMark[][] = [];
     renderHook(() =>
       useRecordHistory(l1.level.id, replay(short.slice(0, scored + 1)), '{"ran":1}', (runs) =>
@@ -421,26 +394,22 @@ describe("going back to a remembered configuration", () => {
     );
     seed(JSON.stringify(graphFromBench(l1, seven)));
     page();
-    // L1 starts with no search block, so the knob is not even on the bench yet.
     expect(screen.queryByRole("slider", { name: /Móc kéo/ })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Quay về bản đạt gần nhất" }));
     fireEvent.click(screen.getByRole("button", { name: "Quay về" }));
 
-    // The drawn control, not a handler call: this is what the player sees.
     expect(screen.getByRole("slider", { name: /Móc kéo/ })).toHaveProperty("value", "7");
     expect(window.localStorage.getItem(`vg.bench.v1.${l1.level.id}`)).toContain('"top_k":7');
   });
 
   it("leaves the bench alone and says so when that configuration no longer fits", () => {
-    // A value outside today's domain, the same case a discarded saved config hits (W8).
     seed(
       '{"schema":1,"nodes":[{"id":"vs","type":"vector_search","params":{"top_k":99}}],"edges":[]}',
     );
     page();
     fireEvent.click(screen.getByRole("button", { name: "Quay về bản đạt gần nhất" }));
     fireEvent.click(screen.getByRole("button", { name: "Quay về" }));
-    // Untouched: still the starter, with no search block and so no knob.
     expect(screen.queryByRole("slider", { name: /Móc kéo/ })).toBeNull();
     expect(screen.getByRole("switch", { name: /Vòm Sao/ })).toHaveProperty("checked", false);
     expect(screen.getByText(/không còn vẽ được trên bàn thợ/)).toBeDefined();
@@ -523,8 +492,6 @@ describe("useStarRunAfterSample (N2)", () => {
 });
 
 describe("a recorded run is nobody's attempt (N4)", () => {
-  // Today every shipped log happens to score 0, so a missing guard would leave no mark and the
-  // test would pass on the content rather than on the code. Three stars makes it bite.
   const scored = (stars: number) => ({
     id: 2,
     event: "run.scored" as const,
@@ -628,8 +595,6 @@ describe("useRecordedRun (N4)", () => {
     expect(result.current.failed).toBe(true);
   });
 
-  // The version is the level's, not a constant: a level whose cases moved on must not be
-  // answered with the run recorded against the old ones.
   it("refuses a log recorded before this version of the level", async () => {
     serve(200);
     const { result } = renderHook(() => useRecordedRun({ ...l1.level, version: 2 }));
@@ -682,8 +647,6 @@ describe("useLastSample (N2)", () => {
     expect(result.current).toBeNull();
   });
 
-  // "Run chấm sao đang chạy tiếp" is a promise about a state the player must be able to see.
-  // Dropping the summary the moment the star run starts makes that sentence unreadable.
   it("keeps the finished sample on screen while the star run behind it runs", () => {
     const { result, rerender } = renderHook(
       (props: { run: RunView | null }) => useLastSample(props.run),
@@ -695,8 +658,6 @@ describe("useLastSample (N2)", () => {
     expect(result.current?.scope).toBe("mau");
   });
 
-  // A second Mở ca resets the run rather than clearing it, so "null" is not the signal. While
-  // the new samples run, last shift's "Cả 3 câu mẫu đạt" would otherwise still be on screen.
   it("forgets it the moment a new sample run starts, not when that one finishes", () => {
     const { result, rerender } = renderHook(
       (props: { run: RunView | null }) => useLastSample(props.run),
@@ -734,8 +695,6 @@ describe("useStaticViz (N22)", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  // The free preview, so it loads without being asked: by the time the player drags the blade
-  // the strip has to already be able to redraw.
   it("loads the level's static data off the static file, unprompted", async () => {
     const urls = serve(200);
     const { result } = renderHook(() => useStaticViz(l2.level));
@@ -758,8 +717,6 @@ describe("useStaticViz (N22)", () => {
     expect(result.current).toBeNull();
   });
 
-  // A file missing one of its four parts would be handed on and then throw on first access,
-  // because `data.strips[variant]` reads a property of undefined.
   it("refuses a file that is missing one of its parts", async () => {
     const rest = Object.fromEntries(
       Object.entries(body as Record<string, unknown>).filter(([key]) => key !== "strips"),

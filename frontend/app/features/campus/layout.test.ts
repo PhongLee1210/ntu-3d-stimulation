@@ -42,7 +42,6 @@ const FOOTPRINTS: readonly [string, Box][] = [
   ...Object.entries(BACK),
 ];
 
-/** Distance from a point to the nearest edge of a box (0 inside). */
 const gap = (p: Vec2, f: Box) =>
   Math.hypot(
     Math.max(Math.abs(p.x - f.x) - f.halfX, 0),
@@ -81,7 +80,6 @@ describe("lake", () => {
     for (let x = LAKE.x - LAKE.rx; x <= WORLD_BOUNDS.maxX; x += 0.05) {
       for (let z = LAKE.z - LAKE.rz; z <= WORLD_BOUNDS.maxZ; z += 0.05) {
         if (isBlocked({ x, z }, OBSTACLES, WORLD_BOUNDS)) continue;
-        // Inside the ellipse shrunk by 0.3 means more than about 0.3 into the water.
         if (Math.hypot((x - LAKE.x) / (LAKE.rx - 0.3), (z - LAKE.z) / (LAKE.rz - 0.3)) < 1) {
           wet.push(`(${x.toFixed(2)}, ${z.toFixed(2)})`);
         }
@@ -129,7 +127,6 @@ describe("librarian", () => {
   });
 });
 
-/** Walks like the frame loop: one click target, 60 steps a second, up to 4000 steps. */
 function walk(from: Vec2, to: Vec2): Vec2 {
   let position = from;
   let done = false;
@@ -146,7 +143,6 @@ const FRONT_POINTS: readonly Vec2[] = [
   NPC_TALK_SPOT,
   ...SITES.flatMap((site) => [site.door, arrivalPose(site).position]),
 ];
-/** Two points on the east lane, then the back points of campus-scene v0.3 §2.5. */
 const LANE_POINTS: readonly Vec2[] = [
   { x: 12.7, z: -5 },
   { x: 10.3, z: -7.5 },
@@ -165,10 +161,6 @@ const BACK_POINTS: readonly Vec2[] = [
 
 const label = (from: Vec2, to: Vec2) => `(${from.x}, ${from.z}) -> (${to.x}, ${to.z})`;
 
-/**
- * Walkable points 0.5 apart that axis steps join to SPAWN, offset so none sits exactly on an
- * obstacle edge (those lie on a 0.05 grid), and how many grid points are walkable at all.
- */
 function pointsJoinedToSpawn(): { joined: Vec2[]; walkable: number } {
   const H = 0.5;
   const cols = Math.floor((WORLD_BOUNDS.maxX - WORLD_BOUNDS.minX) / H);
@@ -196,7 +188,6 @@ function pointsJoinedToSpawn(): { joined: Vec2[]; walkable: number } {
   return { joined: queue.map(at), walkable };
 }
 
-/** Every leg of `routeTo` must arrive within 0.08, as the frame loop moves on only then. */
 function expectRouteArrives(from: Vec2, to: Vec2, toward = HOME_TOWARD) {
   let position = from;
   for (const waypoint of routeTo(from, to, toward)) {
@@ -224,7 +215,6 @@ describe("hub NPCs (npc-cast v0.4 §4)", () => {
       expect(reach).toBeLessThan(INTERACT_RADIUS);
       expect(speakerSpot(npc.id)).toBe(npc.spot);
       expect(talkSpot(npc.id)).toBe(npc.talk);
-      // Out of the strip the spire hides from the home view (v0.3 §4.5).
       expect(npc.spot.x - npc.spot.z <= 5.5 || npc.spot.x - npc.spot.z >= 9.7, npc.id).toBe(true);
     }
     expect(speakerSpot("lan")).toBe(NPC_SPOT);
@@ -239,7 +229,6 @@ describe("hub NPCs (npc-cast v0.4 §4)", () => {
         expect(Math.hypot(p.x - npc.spot.x, p.z - npc.spot.z)).toBeGreaterThan(2 * INTERACT_RADIUS);
       }
     }
-    // The spawn shows no hint yet: the librarian stays the first goal.
     for (const npc of NPCS) {
       expect(Math.hypot(SPAWN.x - npc.spot.x, SPAWN.z - npc.spot.z)).toBeGreaterThan(
         INTERACT_RADIUS,
@@ -300,13 +289,11 @@ describe("click-to-move (campus-scene v0.2 §1.6, v0.3 §2.5)", () => {
   it("takes the zone list's route from every walkable point: front to the back, back to the spawn", () => {
     const { joined, walkable } = pointsJoinedToSpawn();
     expect(joined.length).toBeGreaterThan(2000);
-    // No sealed pocket: a click into one had no route (QA r4, west edge beside the library).
     expect(joined).toHaveLength(walkable);
     for (const from of joined) expectRouteArrives(from, from.z < BACK_Z ? SPAWN : BACK_SPOT);
   }, 60_000);
 
   it("starts each leg on the waypoint routeTo checked it from, not up to 0.08 off it", () => {
-    // Both stopped at the east lane's mouth, against the watchtower, before step() snapped.
     expectRouteArrives({ x: -2.84, z: -17.44 }, { x: -3.04, z: -0.74 });
     expectRouteArrives({ x: 0.2, z: -17.5 }, { x: -4.8, z: -0.72 });
   });
@@ -344,7 +331,6 @@ describe("click-to-move (campus-scene v0.2 §1.6, v0.3 §2.5)", () => {
             slow.push(`no stand point: ${label(SPAWN, click)}`);
             continue;
           }
-          // The last leg, from the stand point (where step() snapped the player) to the click.
           let position = stand;
           let frames = 0;
           for (let done = false; !done && frames <= 30; frames += 1) {
@@ -372,14 +358,12 @@ describe("click-to-move (campus-scene v0.2 §1.6, v0.3 §2.5)", () => {
     const route = routeTo(SPAWN, back, towardFor(deg(225)));
     expect(route.at(-1)).toBe(back);
     expect(route.at(-2)?.z).toBeLessThan(-10.25);
-    // From home the same click still stands in front of the building.
     expect(routeTo(SPAWN, back).at(-2)?.z).toBeGreaterThan(-6);
   });
 
   it.each([0, 90, 180, 270])(
     "finds a stand point off every edge and on every building, viewed from %i°",
     (yaw) => {
-      // An axis yaw walks straight along x or z, so each edge's exit in pastBounds is reached.
       const toward = towardFor(deg(yaw));
       const { minX, maxX, minZ, maxZ } = WORLD_BOUNDS;
       const clicks: Vec2[] = [

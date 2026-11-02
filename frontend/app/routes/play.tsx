@@ -26,16 +26,12 @@ import { useDelayedFlag, useSettled } from "~/lib/useSettled";
 
 import type { Route } from "./+types/play";
 
-// three.js and the scene live in their own chunk; the HUD renders without waiting for it.
 const loadScene = () => import("~/features/campus/scene/CampusScene");
 const CampusScene = lazy(loadScene);
 
 export const meta: Route.MetaFunction = () => [{ title: "Khuôn viên · V-Game" }];
 
 export function clientLoader({ request }: Route.ClientLoaderArgs) {
-  // Start the scene chunk download now, in parallel with the route render. A failure reaches
-  // SceneBoundary through lazy(). A new entry starts at the home view, where the loader's
-  // blueprint is drawn, so the first 3D frame lands on it after the view was turned.
   if (beginScene()) hubStore.getState().resetView();
   void loadScene().then(
     () => advanceScene(STAGE.boot),
@@ -43,7 +39,6 @@ export function clientLoader({ request }: Route.ClientLoaderArgs) {
   );
   return {
     arrival: parseArrival(new URL(request.url).searchParams.get("at")),
-    // Not awaited: the scene never waits for the API (brief §4.3).
     zones: loadZoneList(),
   };
 }
@@ -71,7 +66,6 @@ export default function Play({ loaderData }: Route.ComponentProps) {
   const revalidator = useRevalidator();
   const showCardSkeleton = useDelayedFlag(zones === undefined, 300);
 
-  // Stand at the door of the zone we came back from (`?at=`), otherwise at the spawn.
   useEffect(() => {
     const pose = arrival ? arrivalPose(arrival) : { position: SPAWN, heading: SPAWN_HEADING };
     const state = hubStore.getState();
@@ -105,14 +99,12 @@ export default function Play({ loaderData }: Route.ComponentProps) {
   const npcSite = npcZone ? sites[npcZone] : null;
 
   return (
-    // The sky is attributes, not an inline style (CSP); app.css turns them into --vg-sky.
     <main
       data-sky={look.sky}
       data-clouds={look.clouds}
       className="relative h-dvh overflow-hidden bg-scene"
     >
       <h1 className="sr-only">Khuôn viên</h1>
-      {/* role="application": keys typed here move the player instead of scrolling the page. */}
       <div
         data-campus-scene
         role="application"
@@ -128,7 +120,6 @@ export default function Play({ loaderData }: Route.ComponentProps) {
           độ.
         </p>
         <SceneBoundary>
-          {/* The loader below covers the wait, outside Suspense, until the first frame. */}
           <Suspense fallback={null}>
             <CampusScene sites={sites} onInteract={onInteract} look={look} />
           </Suspense>
@@ -144,7 +135,6 @@ export default function Play({ loaderData }: Route.ComponentProps) {
         <LanDialog
           lines={dialog.lines}
           library={library}
-          // The dialog stays open, saying the level is opening, until the level has loaded.
           onTeach={() =>
             void Promise.resolve(navigate(`/play/${library.zoneId}/${FIRST_LIBRARY_LEVEL}`)).then(
               () => hubStore.getState().closeDialog(),

@@ -52,28 +52,19 @@ import { BLOCK_TYPES, type BlockType, type GoldReveal, type Graph } from "./sche
 interface ResultsProps {
   env: Env;
   run: RunView;
-  /** The bench changed since this run (§8.6 "Kết quả cũ"). */
   changed: boolean;
-  /** The graph this run used (ranks are read against its top_k / top_n). */
   runGraph: Graph | null;
-  /** The bench now: a lesson on a detached slot says the move ("Thử gắn …"). */
   graph: Graph;
   backTo: string;
-  /** The guess slip that went with this run, if the player filled one (B1). */
   slip: Slip | null;
-  /** This level's last scored runs, newest first, for the regression strip (N3). */
   history: readonly RunMark[];
-  /** Puts a remembered configuration back on the bench, from a row of the strip. */
   onDuplicate: (mark: RunMark) => void;
-  /** Persists the debrief's picks (N20) onto the run just recorded. */
   onDebrief: (extras: { why?: number; next?: NextPick }) => void;
   onEdit: () => void;
   onFocusSlot: (type: BlockType, param?: string, phrase?: string | null) => void;
-  /** N16: opening a failing case's trace is a free look toward the next hint. */
   onLook?: () => void;
 }
 
-/** Sao 3 evidence per forbidden label, in the words of `stars_vi` ("{n} câu …"). */
 const LABEL_EVIDENCE: Readonly<Record<string, string>> = {
   stale_doc: "mang văn bản hết hiệu lực vào thùng",
   cite_unknown: "trích nguồn không có trong thùng",
@@ -81,7 +72,6 @@ const LABEL_EVIDENCE: Readonly<Record<string, string>> = {
 const asBlock = (block: string): BlockType | null =>
   (BLOCK_TYPES as readonly string[]).includes(block) ? (block as BlockType) : null;
 
-/** Stars, the three conditions, cô Lan's diagnosis and every case (§8.6). */
 export function Results({
   env,
   run,
@@ -98,17 +88,11 @@ export function Results({
   onLook,
 }: ResultsProps) {
   const { level } = env;
-  // §3.7: gold belongs to the sample cases. The server redacts the rest (runs.py), so this is
-  // the second lock rather than the only one -- a stale deploy or a replayed log cannot turn a
-  // hidden case's rank table into something the player tunes top_k against.
   const sample = new Set(run.cases.filter((c) => c.role === "visible").map((c) => c.id));
   const revealed = Object.fromEntries(
     Object.entries(run.report?.gold ?? {}).filter(([id]) => sample.has(id)),
   );
-  // The reason menu comes before the diagnosis (L1 §11); one per run (the parent keys by run).
   const [why, setWhy] = useState<"ask" | "answered" | "skipped">("ask");
-  // The stable index chosen, for the debrief's line 3 (N20) -- kept separately from `why` above
-  // so the existing ask/answered/skipped control flow does not have to change shape.
   const [whyIndex, setWhyIndex] = useState<number | null>(null);
   useEffect(() => {
     if (why === "skipped") document.getElementById("wb-diagnosis-title")?.focus();
@@ -137,8 +121,6 @@ export function Results({
     },
     {
       ok: score.s2,
-      // X7: a fallback costs about 0,9k more output tokens on an L3 run (spec §7), so when one
-      // answered, this token figure is not a measure of the player's bench alone.
       evidence: [
         `${fmt(score.tokens)}/${fmt(score.budget)} token (${TOKENS_VI.usage})`,
         ...(served.fallback > 0 ? ["hiệu chỉnh trên model chính"] : []),
@@ -242,9 +224,6 @@ export function Results({
         <WhyMenu
           c={ask.c}
           menu={ask.menu}
-          // The failed case's number, or the run's case count for the budget menu, which has
-          // no case of its own. +1 so a seed divisible by the option count cannot land the
-          // answer first.
           turn={(ask.c?.n ?? run.cases.length) + 1}
           onAnswer={(index) => {
             setWhy("answered");
@@ -254,7 +233,6 @@ export function Results({
         />
       )}
       {ask && why === "ask" ? null : run.phase === "failed" ? (
-        // The stars came, then the run failed before its gold reveal (§8.6).
         <p className="mt-2 max-w-prose text-sm">
           Máy chủ đã chấm sao nhưng phần chẩn đoán chưa tới được. Chạy lại cùng cấu hình để xem: các
           câu đã chạy xong dùng kết quả đã lưu.
@@ -275,7 +253,6 @@ export function Results({
                 return c ? [c] : [];
               });
               const target = diagnosisTarget(env, group, revealed, runGraph);
-              // The blocked customer's lesson opens the very phrase that stopped them.
               const phrase =
                 group.flag === "guard.blocked_benign" && first ? blockedPhrase(first) : null;
               const showSlot = target !== null && hasControls(env, target.slot);
@@ -347,13 +324,10 @@ export function Results({
         ))}
       </div>
 
-      {/* Projector mode keeps the score and the case grid, not one pair's history (R3, R8). */}
       {history.length > 0 && (
         <div className="chieu:hidden">
           <h3 className="mt-8 text-lg font-bold">{HISTORY_VI.heading}</h3>
           <History runs={history} onDuplicate={onDuplicate} />
-          {/* history[0] is the run just finished (recordRun prepends), history[1] the one
-              before it -- from the second run of a level on, there is a prior to compare. */}
           {history[0] && history[1] && <Compare env={env} prev={history[1]} now={history[0]} />}
         </div>
       )}
@@ -378,7 +352,6 @@ export function Results({
         </p>
       )}
 
-      {/* cô Lan's hints are the pairs' to open at their own pace, not the room's (R3). */}
       <div className="chieu:hidden">
         <Debrief
           env={env}
@@ -436,7 +409,6 @@ function CaseCard({
       <details
         className="group mt-1 chieu:hidden"
         onToggle={(event) => {
-          // L1 §11: the look that counts is the trace of a case that failed.
           if (failed && event.currentTarget.open) onLook?.();
         }}
       >
@@ -456,8 +428,6 @@ function CaseCard({
             );
           })}
         </ol>
-        {/* X7: star 2 is calibrated on the primary model, so which model answered this case is
-            part of reading the grade. Same words as the bench's llm step, so the two agree. */}
         {served && (
           <p className="mt-2 text-sm" data-case-model={served.model}>
             Model <code className="font-mono text-xs">{served.model}</code>
@@ -492,9 +462,6 @@ function GoldTrace({
   gold: GoldReveal;
   runGraph: Graph | null;
 }) {
-  // A question with no answer has no gold at all. An empty `gold_chunks` alone also means the
-  // chunker cut every answer sentence in half: the pieces still have ranks and the case its
-  // `ret.boundary_split` flag (§8.6).
   const split = gold.gold_chunks.length === 0;
   if (
     split &&
@@ -510,8 +477,6 @@ function GoldTrace({
   }
   const ids = nodeIds(env.level);
   const params = (node: string) => runGraph?.nodes.find((n) => n.id === node)?.params ?? {};
-  // The two searches rank the whole store; Phễu and Kính lúp rank inside what reached them, so
-  // their numbers sit on their own smaller rulers (§8.6) and no hop across the two is a move.
   const scales: Record<string, Scale> = {};
   for (const type of RANKED) {
     if (type === "vector_search" || type === "bm25_search") {
@@ -529,7 +494,6 @@ function GoldTrace({
     const toy = toyName(type, own);
     if (type === "vector_search" || type === "bm25_search") {
       const hook = TOY[type].params?.top_k ?? "Móc kéo";
-      // Same verb as the diagnosis ("Tủ ngăn kéo không tìm thấy"): the passage is in the corpus.
       const where = rank === null ? "không tìm thấy đoạn đáp án" : `hạng ${rank} trên toàn kho`;
       const d = domain(env, type, "top_k");
       const max = d?.kind === "range" ? `, tối đa ${d.max}` : "";
@@ -545,8 +509,6 @@ function GoldTrace({
         : `${toy}: hạng ${rank} trong ${size} đoạn giữ lại`,
     ];
   });
-  // A case with two answer passages: `in_pack` is true once one is in, each rank is the best
-  // passage's, and the missing one has its own flag (grading.py).
   const partial =
     gold.in_pack && gold.flags.some((f) => f === "ret.gold_missing" || f === "ctx.gold_dropped");
   return (

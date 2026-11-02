@@ -8,12 +8,6 @@ import type { CaseView, RunView } from "./run";
 import { loadSlip, saveSlip } from "./storage";
 import { parseSse, readText, replay, testEnv } from "./test-fixtures";
 
-/**
- * Help on Watchtower W1 (watchtower.md §3.6): the hint ladder, the diagnosis pointers and the
- * guess slip's two questions. The runs are the engine's own streams for the starter and the
- * reference graph (e2e/data/README.md).
- */
-
 afterEach(() => window.localStorage.clear());
 
 const W1 = "direct-injection";
@@ -25,7 +19,6 @@ const recorded = (name: "starter" | "reference"): RunView => {
   return run;
 };
 
-/** The run with these cases' labels changed (graded cases keep everything else). */
 function withLabels(run: RunView, labels: Record<string, string[]>): RunView {
   return {
     ...run,

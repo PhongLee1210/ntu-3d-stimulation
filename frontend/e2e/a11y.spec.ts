@@ -20,9 +20,6 @@ const VIEWPORTS = [
 ] as const;
 
 async function seriousViolations(page: Page) {
-  // Contrast is only meaningful at rest: a case row caught mid-flip (N18) reads its muted
-  // question against a half-faded tint, and the scan failed about one run in four for it.
-  // Infinite animations never finish, so only the ones that end are awaited.
   await page.evaluate(() =>
     Promise.all(
       document
@@ -45,15 +42,11 @@ for (const viewport of VIEWPORTS) {
     test.use({ viewport });
 
     test("campus hub HUD, with and without the dialogs", async ({ page }) => {
-      // Four axe scans and two walks (to cô Lan, then to the guard at the gate): on the
-      // software-WebGL CI runner this sits at the 30 s default, like the other walking tests.
       test.slow();
       await mockApi(page);
       await page.goto("/play");
       await expect(page.locator("canvas")).toBeVisible();
-      // Mid-fade, the loader card's text is translucent and axe reads it as low contrast.
       await expect(page.locator("[data-scene-loader]")).toHaveCount(0);
-      // The view buttons (orbit-camera §2.3) are in the scan, the compass at rest and turned.
       const views = page.getByRole("group", { name: "Góc nhìn" });
       await expect(views.getByRole("button")).toHaveCount(3);
       expect(await seriousViolations(page)).toEqual([]);
@@ -70,7 +63,6 @@ for (const viewport of VIEWPORTS) {
       await expect(page.getByRole("dialog", { name: "Cô Lan" })).toBeVisible();
       expect(await seriousViolations(page)).toEqual([]);
 
-      // An NPC's dialog (npc-cast v0.4 §9), the guard's with its zone card.
       await page.keyboard.press("Escape");
       const { guard } = await npcNames(page);
       await page.getByRole("button", { name: `Nói chuyện với ${guard.name}` }).click();
@@ -152,7 +144,6 @@ test.describe("axe on the live night sky (campus v0.4 W7)", () => {
     await expect(page.locator("[data-scene-loader]")).toHaveCount(0);
     expect(await seriousViolations(page)).toEqual([]);
 
-    // On the night sky the ring is the surface colour: brand fades to about 2:1 there (§4.2).
     const chip = page.getByRole("button", { name: /°C/ });
     await chip.focus();
     const ring = await chip.evaluate((el) => getComputedStyle(el).outlineColor);

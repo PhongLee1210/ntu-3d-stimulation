@@ -15,20 +15,13 @@ const FOCUSABLE = "a[href], button:not([disabled])";
 
 interface HubDialogProps {
   titleId: string;
-  /** The speaker's name, as the heading the dialog is labelled by. */
   title: string;
   subtitle: string;
-  /** Takes focus when the dialog opens. */
   initialFocus: RefObject<HTMLElement | null>;
   onClose: () => void;
   children: ReactNode;
 }
 
-/**
- * The shell of every hub conversation: a modal `<dialog>` (the rest of the page is inert), a
- * side panel from `lg`, a bottom sheet below it. Focus starts on `initialFocus`, Tab is
- * trapped, Esc or a click on the backdrop closes, and focus goes back where it came from.
- */
 export function HubDialog({
   titleId,
   title,
@@ -47,11 +40,8 @@ export function HubDialog({
     initialFocus.current?.focus();
     return () => {
       if (dialog.open) dialog.close();
-      // After the commit (the hint button is back by then). Skipped when the dialog is still
-      // mounted, i.e. a development-only effect re-run.
       queueMicrotask(() => {
         if (dialog.isConnected) return;
-        // Back to the control that opened the dialog; after E or a click on the scene, the hint.
         const control =
           opener instanceof HTMLElement &&
           opener.isConnected &&
@@ -68,7 +58,6 @@ export function HubDialog({
     };
   }, [initialFocus]);
 
-  // Below `lg` the sheet covers the bottom of the scene; tell the follow camera how much.
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
@@ -100,7 +89,6 @@ export function HubDialog({
   };
 
   return (
-    // The backdrop click lands on the <dialog> element itself; content clicks land inside.
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- backdrop click; Esc is handled by onCancel
     <dialog
       ref={dialogRef}

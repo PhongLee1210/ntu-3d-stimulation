@@ -14,7 +14,6 @@ describe("stampAnswer", () => {
   });
 
   it("marks a citation the bin never held as fabricated", () => {
-    // The L1 lesson: a model with nothing in the bin invents a source that looks real.
     const parts = stampAnswer("Theo Điều 47 [zz99zz99].", ["ab12cd34"]);
     expect(parts[0]?.kind).toBe("fake");
     expect(parts[0]?.ids).toEqual(["zz99zz99"]);
@@ -47,7 +46,6 @@ describe("stampAnswer", () => {
   });
 });
 
-/** The answers the game ships, so the splitter is measured against real model prose. */
 function committedAnswer(level: string, caseId: string): string {
   const run = JSON.parse(readText("public", "runs", `${level}.json`)) as {
     events?: { case?: string; facts?: { kind: string; answer?: string }[] }[];
@@ -61,9 +59,6 @@ function committedAnswer(level: string, caseId: string): string {
 
 describe("sentence splitting on the committed answers", () => {
   it("keeps a decimal inside its sentence instead of tearing the citation off it", () => {
-    // lib-l1-v03 says "equivalent IELTS 5.5 hoặc TOEIC 600 trở lên) [VD_ANH_02]". Splitting at
-    // the decimal stamped the first half "no source" -- inverting L1's whole lesson -- and gave
-    // the second half the citation.
     const parts = stampAnswer(committedAnswer("grounded-citation", "lib-l1-v03"), []);
     const torn = parts.filter((p) => p.text.startsWith("5 hoặc TOEIC"));
     expect(torn).toHaveLength(0);
@@ -73,21 +68,18 @@ describe("sentence splitting on the committed answers", () => {
   });
 
   it("does not make a card out of a bracket left over from an ellipsis", () => {
-    // "(… như TOEIC, IELTS, TOEFL...)" used to split after the dots, leaving ")." on its own.
     const parts = stampAnswer(committedAnswer("grounded-citation", "lib-l1-v03"), []);
     expect(parts.map((p) => p.text)).not.toContain(").");
     expect(parts.every((p) => p.text.length > 2)).toBe(true);
   });
 
   it("keeps a numbered list marker with the step it numbers", () => {
-    // lib-l1-v01 is a four-step list; "1." through "4." are not sentences.
     const parts = stampAnswer(committedAnswer("grounded-citation", "lib-l1-v01"), []);
     expect(parts.map((p) => p.text)).not.toContain("1.");
     expect(parts.filter((p) => /^\d+\.\s/.test(p.text))).toHaveLength(4);
   });
 
   it("stamps every bullet of a grounded answer as a brick", () => {
-    // lib-l2-v02 cites 758e555c on each bullet; with it in the bin they are all bricks.
     const parts = stampAnswer(committedAnswer("chunk-tuning", "lib-l2-v02"), ["758e555c"]);
     const bullets = parts.filter((p) => p.text.startsWith("-"));
     expect(bullets.length).toBeGreaterThanOrEqual(6);
@@ -97,8 +89,6 @@ describe("sentence splitting on the committed answers", () => {
 
 describe("a sentence citing more than one passage", () => {
   it("is fabricated when any one of its citations was never in the bin", () => {
-    // The strict branch: `every`, not `some`. A sentence that leans half on a real passage and
-    // half on an invented one is the harder version of L1's lesson, not a brick.
     const parts = stampAnswer("Theo Điều 12 [aa11] và Điều 47 [zz99].", ["aa11"]);
     expect(parts[0]?.kind).toBe("fake");
     expect(parts[0]?.ids).toEqual(["aa11", "zz99"]);

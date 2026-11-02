@@ -28,7 +28,6 @@ import { hubStore, useHub } from "../store";
 const POPOVER_ID = "hub-weather";
 const ICON = "size-5 shrink-0";
 
-/** The group's icon; a clear or partly cloudy night shows the moon. */
 export function WeatherIcon({ condition, phase }: { condition: Condition | null; phase: Phase }) {
   const night = phase === "night";
   switch (condition) {
@@ -49,26 +48,15 @@ export function WeatherIcon({ condition, phase }: { condition: Condition | null;
   }
 }
 
-/** Whole degrees; never "-0°C". */
 const degrees = (celsius: number) => `${Math.round(celsius) || 0}°C`;
 
-/**
- * Today's weather and hour at the theme's place, in the top-left HUD group (campus v0.4 W6): icon
- * and "27°C" from `sm`, the icon alone (44 px) below. A native popover holds the details, the
- * display mode ("Cố định ban ngày" also stops the rain, WCAG 2.2.2) and the data credit next to
- * the data (Open-Meteo, CC BY 4.0), with a note that the browser fetches it there. Old browsers
- * without popover never show its content.
- */
 export function WeatherChip({ place }: { place: Place }) {
   const { phase, weather, failed, display } = useHub((state) => state.sky);
   const dialogOpen = useHub((state) => state.dialog !== null);
   const popover = useRef<HTMLDivElement>(null);
-  // The popover's clock: read when it opens, not ticking (no per-minute renders).
   const [now, setNow] = useState(() => Date.now());
 
-  // A conversation takes the screen: the popover sits in the top layer, over the dialog.
   useEffect(() => {
-    // Browsers without popover (Safari < 17) lack hidePopover; their popover never opens.
     const element = popover.current;
     if (dialogOpen && element && "hidePopover" in element) element.hidePopover();
   }, [dialogOpen]);
@@ -84,14 +72,11 @@ export function WeatherChip({ place }: { place: Place }) {
       <button
         type="button"
         popoverTarget={POPOVER_ID}
-        // On the button, not in sr-only spans: browsers pad an absolutely positioned span with
-        // spaces ("27°C , Mưa"). It still starts with the visible text (WCAG 2.5.3).
         aria-label={
           weather
             ? `${degrees(weather.temperature_c)}, ${CONDITION_TEXT[weather.condition]}, ${place.name}`
             : `Thời tiết ${place.name}`
         }
-        // sm:px-3, not px-3: only a variant is emitted after the base px-5 and beats it.
         className={buttonClass("secondary", "max-sm:w-11 max-sm:px-0 sm:px-3")}
       >
         <WeatherIcon condition={condition} phase={phase} />

@@ -94,14 +94,13 @@ describe("RunPanel", () => {
     const { rerender } = render(<Panel request={{ state: "idle" }} />);
     fireEvent.click(screen.getByRole("button", { name: "Khôi phục cấu hình khởi đầu" }));
     rerender(<Panel request={{ state: "sending", key: "k", body: "{}" }} />);
-    // Restoring now would reset the request to idle and let a second POST out beside the first.
     expect(screen.getByRole("button", { name: "Khôi phục" })).toHaveProperty("disabled", true);
     expect(screen.getByRole("button", { name: "Giữ cấu hình" })).toHaveProperty("disabled", true);
   });
 
   it.each([
     ["grounded-citation", 10],
-    ["article-number-lookup", 13], // 10 normal + 2 trap + 1 info: the info case calls the AI too
+    ["article-number-lookup", 13],
   ] as const)("counts every AI call of %s before the run", (id, calls) => {
     render(<Panel request={{ state: "idle" }} env={testEnv(id)} />);
     expect(screen.getByText(`(${calls} lời gọi)`, { exact: false })).toBeTruthy();
@@ -114,7 +113,6 @@ describe("going back to the last version that worked", () => {
     render(<Panel request={{ state: "idle" }} backToPassing={back} />);
     fireEvent.click(screen.getByRole("button", { name: "Quay về bản đạt gần nhất" }));
     expect(back).not.toHaveBeenCalled();
-    // The confirm names what is about to be replaced, and focus lands on it (§8.4).
     expect(screen.getByText(/thay bằng cấu hình của lượt đạt gần nhất/)).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Quay về" }));
     expect(back).toHaveBeenCalledOnce();
@@ -131,7 +129,6 @@ describe("going back to the last version that worked", () => {
   it("offers nothing when no run of this level has earned a star", () => {
     render(<Panel request={{ state: "idle" }} backToPassing={null} />);
     expect(screen.queryByRole("button", { name: /Quay về bản đạt/ })).toBeNull();
-    // The starter restore is a different offer and stays.
     expect(screen.getByRole("button", { name: "Khôi phục cấu hình khởi đầu" })).toBeDefined();
   });
 
@@ -183,7 +180,6 @@ describe("the recorded run is free and on offer (N4)", () => {
     expect(show).toHaveBeenCalledOnce();
   });
 
-  // It is the thing that covers a sleeping Render, so it must read as free next to Mở ca.
   it("says the recorded run costs no AI call", () => {
     render(<Panel request={{ state: "idle" }} />);
     expect(screen.getByText(/0 lời gọi AI/)).toBeDefined();
@@ -228,9 +224,6 @@ describe("the scrub bar waits for the run to be over (N4)", () => {
     data: JSON.stringify({ report: { gold: {}, diagnosis: [] }, models: {} }),
   };
 
-  // Two specs read the case table's first button as the first case's row. A control put
-  // inside that region above the list silently becomes that button instead -- which is
-  // exactly what happened, and only CI caught it.
   it("stays outside the case table's own region", () => {
     render(<Panel request={{ state: "idle" }} run={replay([started, done])} />);
     const region = screen.getByRole("region", { name: "Bảng câu" });
@@ -243,7 +236,6 @@ describe("the scrub bar waits for the run to be over (N4)", () => {
     expect(screen.getByRole("slider", { name: SCRUB_VI.label })).toBeDefined();
   });
 
-  // A live run moves the followed case itself; a control fighting it would snatch the view.
   it("stays out of a run still going", () => {
     render(<Panel request={{ state: "idle" }} run={replay([started])} />);
     expect(screen.queryByRole("slider", { name: SCRUB_VI.label })).toBeNull();
@@ -280,7 +272,6 @@ describe("the day's pool beside Mở ca (roadmap-v0.4 §5.1)", () => {
         quota={{ ...FULL, left: 1, mode: "recorded" }}
       />,
     );
-    // One button: the spare "watch a run" button below would only repeat it.
     fireEvent.click(screen.getByRole("button", { name: "Xem lượt đã ghi" }));
     expect(onRecorded).toHaveBeenCalledOnce();
     expect(onOpen).not.toHaveBeenCalled();
@@ -304,7 +295,6 @@ describe("the day's pool beside Mở ca (roadmap-v0.4 §5.1)", () => {
 describe("projector mode (lesson plan R4-R6)", () => {
   const idle: RequestState = { state: "idle" };
   const finishedRun = () => {
-    // The captured L1 reference run: some cases pass and some fail, so a leak would show.
     const run = replay(parseSse(readText("e2e", "data", "run-l1-reference.sse")));
     if (!run) throw new Error("no run");
     return run;

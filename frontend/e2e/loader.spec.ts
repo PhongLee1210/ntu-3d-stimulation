@@ -10,21 +10,14 @@ import { bundleReport, expect, mockApi, test, waitForIdleScene } from "./fixture
 
 const CLIENT_DIR = path.resolve(import.meta.dirname, "..", "build", "client");
 const VIEWPORTS = [
-  // Overview: the board's back corner (top of the diamond) is on screen.
   { width: 1280, height: 800, project: "desktop", at: null, edge: [BASE.minX, BASE.minZ] },
-  // Follow mode, arriving at the library: a point on the board's back-left edge.
   { width: 375, height: 812, project: "mobile", at: "library", edge: [BASE.minX, -11.5] },
 ] as const;
 
 const loader = (page: Page) => page.locator("[data-scene-loader]");
 
-/**
- * The lazy scene chunk itself (the one holding three.js). Not every file of `sceneChunks`: the
- * scene shares a chunk with the route (the loader's store and the camera maths).
- */
 const sceneChunk = new Set(bundleReport.threeChunks.map((file) => `/${file}`));
 
-/** Holds the scene chunk request until `release()`, so the loader stays at step 2. */
 async function holdScene(page: Page) {
   let release: () => void = () => undefined;
   const held = new Promise<void>((resolve) => (release = resolve));
@@ -38,7 +31,6 @@ async function holdScene(page: Page) {
   return () => release();
 }
 
-/** Where a ground point lands on screen in the first 3D frame (useHubFrame's first camera). */
 function groundPixel(width: number, height: number, x: number, z: number, player: Vec2 = SPAWN) {
   const view = viewFor(width, height);
   const focus = toScreen(player.x, 0, player.z);
@@ -83,7 +75,6 @@ test.describe("scene loader", () => {
       "vg-scene-5",
     ]);
     const before = await frames();
-    // Measuring idleness needs time to pass; no state is being waited for here.
     await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
     expect(await frames()).toBe(before);
     expect(consoleErrors).toEqual([]);
@@ -119,14 +110,12 @@ test.describe("scene loader", () => {
   for (const viewport of VIEWPORTS) {
     test.describe(`while the scene chunk downloads, at ${viewport.width}×${viewport.height}`, () => {
       test.use({ viewport: { width: viewport.width, height: viewport.height } });
-      // The desktop project checks 1280×800, the (touch) mobile project 375×812.
       test.skip(
         ({ isMobile }) => isMobile !== (viewport.project === "mobile"),
         "One project per viewport.",
       );
 
       test("shows step 2 without covering the HUD, with few announcements", async ({ page }) => {
-        // Software compositing redraws the looping logo block every frame; axe is slow on top.
         test.slow();
         await mockApi(page);
         const release = await holdScene(page);
@@ -181,8 +170,6 @@ test.describe("scene loader", () => {
         await mockApi(page);
         const release = await holdScene(page);
         await page.goto("/play");
-        // The pre-rendered shell has a board of its own (checked without JS below), which
-        // hydration replaces: wait for the route, whose live loader draws the board measured here.
         await expect(page.locator("[data-campus-scene]")).toBeAttached();
         await expect(page.locator('[data-bp="board"]')).toBeAttached();
         expect(await loader(page).boundingBox()).toEqual(
@@ -214,7 +201,6 @@ test.describe("scene loader", () => {
         await page.goto("/play");
         await expect(page.locator(".bp-pc").first()).toBeAttached();
         await expect(page.locator(".bp-pc:not(.is-set)")).toHaveCount(0);
-        // The appear delay and one-shot pops end at once; an infinite loop never would.
         await expect
           .poll(() =>
             page.evaluate(() =>
@@ -234,8 +220,6 @@ test.describe("scene loader", () => {
         await page.goto(at ? `/play?at=${at}&debug=frames` : "/play?debug=frames");
         await waitForIdleScene(page);
         await expect(loader(page)).toHaveCount(0);
-        // A point on a back edge of the board, projected like the blueprint: 4 px above it is
-        // sky (the page's own colour behind the transparent canvas), 4 px below it the board.
         const [x, z] = edge;
         const player = at ? arrivalPose(siteFor(at)).position : SPAWN;
         const point = groundPixel(viewport.width, viewport.height, x, z, player);
@@ -257,7 +241,6 @@ test.describe("scene loader", () => {
     await mockApi(page);
     await page.goto("/");
     await page.getByRole("link", { name: "Vào khuôn viên" }).first().click();
-    // Read on the animation frame where the last step shows: a fade starts near opacity 1.
     const opacity = await page.waitForFunction(
       () => {
         const element = document.querySelector("[data-scene-loader]");

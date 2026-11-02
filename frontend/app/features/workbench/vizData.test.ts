@@ -10,7 +10,6 @@ import {
 } from "./vizData";
 import { readText } from "./test-fixtures";
 
-/** One synthetic document, one variant, cuts wherever the test says. */
 const data = (
   text: string,
   articles: [number, number, number][],
@@ -29,8 +28,6 @@ describe("articleStrip", () => {
   const text = "A".repeat(300);
 
   it("counts a cut that lands inside the article, whichever article it was filed under", () => {
-    // The lesson of L2: a 0-100 cut whose first token sits in Điều 1 -- the only thing `dieu`
-    // records -- still cuts THROUGH Điều 2, and the strip of Điều 2 has to show it.
     const strip = articleStrip(
       data(
         text,
@@ -84,9 +81,6 @@ describe("articleStrip", () => {
     expect(articleStrip(data(text, [[1, 0, 100]], [[0, 100]]), "nope", "d", 1)).toBeNull();
   });
 
-  // Strip.tsx builds its pieces from [start, ...cuts, end] and takes the width between
-  // consecutive edges: an unsorted or repeated cut there is a negative or zero-width piece.
-  // Real chunk lists arrive in order, so only synthetic input can hold this contract.
   it("returns the cuts in reading order, with repeats collapsed", () => {
     const strip = articleStrip(
       data(
@@ -117,7 +111,6 @@ describe("cutSentence", () => {
   const text = "Câu một. Câu hai dài hơn. Câu ba.";
 
   it("finds the sentence a cut lands inside, and says where it was cut", () => {
-    // "Câu hai dài hơn." runs 9..25; cutting at 16 lands inside it.
     const cut = cutSentence(text, 0, 16);
     expect(cut?.text).toBe("Câu hai dài hơn.");
     expect(cut?.at).toBe(16);
@@ -127,8 +120,6 @@ describe("cutSentence", () => {
     expect(cutSentence(text, 0, 9)).toBeNull();
   });
 
-  // The reader got the whole sentence bar its full stop; calling that severed would paint a
-  // cut red that cost nothing.
   it("says nothing for a cut that falls just before the full stop", () => {
     expect(cutSentence(text, 0, 24)).toBeNull();
   });
@@ -167,8 +158,6 @@ describe("variantKey", () => {
 describe("focusArticle", () => {
   const real = JSON.parse(readText("public", "viz", "chunk-tuning.json")) as VizData;
 
-  // The lesson, read off the shipped data: the article the search brings back first moves when
-  // the blade moves. No gold is involved, so this works before any run (L2 §5).
   it("names the article the top-ranked chunk sits in, and its document", () => {
     expect(focusArticle(real, "theo_dieu-512-10", "lib-l2-v01")).toEqual({
       docId: "qcdt-2024",
@@ -192,12 +181,6 @@ describe("focusArticle", () => {
 describe("the document is part of an article's identity (audit blocker)", () => {
   const real = JSON.parse(readText("public", "viz", "chunk-tuning.json")) as VizData;
 
-  // L2 ships qcdt-2024 (Điều 1..84) and qcdt-2019 (Điều 1..16): "Điều 10" names two different
-  // articles. Resolving by number alone drew qcdt-2024's "Khối lượng học tập trong học kỳ"
-  // while the search had favoured qcdt-2019's "Bảo lưu kết quả học tập" -- Hà's actual
-  // question -- and silently put the in-force text where the superseded one belongs, on the
-  // level whose forbidden label IS stale_doc. Both articles cut into 3 pieces with 2 severed
-  // sentences, so every count in the old tests held on the wrong one.
   it("favours the document the search pointed at, not the first that owns the number", () => {
     expect(focusArticle(real, "co_dinh-128-0", "lib-l2-v01")).toEqual({
       docId: "qcdt-2019",
@@ -232,9 +215,6 @@ describe("the document is part of an article's identity (audit blocker)", () => 
 describe("a piece is made by a cut inside the article, not by a chunk lapping it", () => {
   const real = JSON.parse(readText("public", "viz", "chunk-tuning.json")) as VizData;
 
-  // With overlap on, two chunks can both touch an article without either cutting it: the
-  // second merely laps its tail. Counting overlaps called that "2 đoạn" and drew a boundary
-  // the blade never made.
   it("calls an article whole when no cut lands inside it, however many chunks lap it", () => {
     const strip = articleStrip(real, "co_dinh-512-10", "qcdt-2019", 10);
     expect(strip?.cuts).toEqual([]);

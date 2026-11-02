@@ -42,8 +42,6 @@ function sample(passes: readonly boolean[], reason?: "daily_cap"): RunView {
 }
 
 describe("SampleResult", () => {
-  // Without this the sample step vanishes the moment it ends: it earns no stars, so the
-  // results section never renders, and the running panel that named it has unmounted.
   it("stays on screen after the sample run ends, counting what passed", () => {
     render(<SampleResult run={sample([true, false, true])} />);
     expect(screen.getByText("2/3 câu mẫu đạt.", { exact: false })).toBeDefined();
@@ -76,8 +74,6 @@ describe("SampleResult", () => {
     expect(screen.queryByText(SAMPLE_VI.passed)).toBeNull();
   });
 
-  // §3.3: the server's own quota, not the player's bench. Saying "chưa đủ" here would blame
-  // them for the server's day.
   it("blames the server's day, not the player, when the daily cap cut in", () => {
     render(<SampleResult run={sample([true, true, true], "daily_cap")} />);
     expect(screen.getByText(SAMPLE_VI.capped)).toBeDefined();
@@ -91,14 +87,10 @@ describe("SampleResult", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  // The running panel that held focus unmounts when the run ends; a star run hands focus to
-  // its results. Without a target here the keyboard drops to <body>.
   it("can take the focus the unmounting run panel is about to drop", () => {
     render(<SampleResult run={sample([true, true, true])} />);
     const heading = document.getElementById("wb-sample");
     expect(heading?.tagName).toBe("H2");
-    // Not `heading.tabIndex === -1`: an ordinary heading reports -1 too, so that assertion
-    // passes with the attribute deleted. Focus it and see whether focus actually lands.
     heading?.focus();
     expect(document.activeElement).toBe(heading);
   });

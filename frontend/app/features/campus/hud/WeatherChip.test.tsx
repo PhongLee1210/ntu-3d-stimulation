@@ -31,8 +31,6 @@ describe("WeatherChip", () => {
         updated_at: "2026-10-08T09:15:00Z",
       });
     });
-    // The name is the button's own label: an sr-only span (position: absolute, so display
-    // block) gets padded with spaces in browsers ("27°C , Mưa phùn"), not in jsdom.
     const button = screen.getByRole("button", { name: "27°C, Mưa phùn, Hà Nội" });
     expect(button.getAttribute("aria-label")).toBe("27°C, Mưa phùn, Hà Nội");
     expect(button.querySelector(".sr-only")).toBeNull();

@@ -29,15 +29,12 @@ describe("citationLedger", () => {
   });
 
   it("gives a fabricated code its own row rather than dropping it", () => {
-    // The whole lesson of L1: a code the bin never held must be visible, not filtered away.
     const l = citationLedger([item("a1", 1)], ["a1"], ["zz", "yy"]);
     expect(l.rows.map((r) => r.id)).toEqual(["a1", "zz", "yy"]);
     expect(l.rows.filter((r) => r.ghost).map((r) => r.id)).toEqual(["zz", "yy"]);
   });
 
   it("keeps a packed code the ranked list never named", () => {
-    // The packer can be fed by Phễu or Kính lúp, whose own retrieved fact belongs to a node
-    // whose list is not the one on row 1.
     const l = citationLedger([item("a1", 1)], ["a1", "c3"], []);
     expect(l.rows.map((r) => [r.id, r.rank, r.inBin])).toEqual([
       ["a1", 1, true],
@@ -77,7 +74,6 @@ describe("packerSaw", () => {
     }) as unknown as StepView;
 
   it("takes the last ranked list, which is the one the packer was handed", () => {
-    // L3 runs vs, then Kính lúp re-ranks what reached it; the bin was filled from the second.
     const steps = { vs: step("vector_search", ["a1", "b2"]), rr: step("rerank", ["b2"]) };
     expect(packerSaw(steps).map((i) => i.chunk_id)).toEqual(["b2"]);
   });

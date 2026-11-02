@@ -1,10 +1,3 @@
-// Post-deploy smoke test for the public site (Vercel) and its API (Render behind /api).
-//
-//   node frontend/scripts/smoke-deploy.mjs https://v-game-theta.vercel.app
-//
-// Checks pages and the SPA fallback, the security headers, that only the public theme packs
-// are served, and that the API answers. The API may be asleep on a free plan, so /api/health
-// is retried for up to four minutes. Exits 1 with a list of failures.
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,8 +45,6 @@ for (const pathname of ["/play", "/play/library"]) {
   }
 }
 
-// Every pack in the repo that is not public must answer 404, so a brand-licensed pack never
-// ships by accident. Pack ids come from the repo, not from this script.
 const index = JSON.parse(await readFile(path.join(root, "public", "themes", "index.json"), "utf8"));
 for (const { id } of index.themes) {
   const manifest = await get(`/themes/${id}/manifest.json`);
@@ -65,7 +56,6 @@ for (const { id } of index.themes) {
 }
 
 let health = { status: 0 };
-// Up to 6 minutes: a cold free instance at 0.1 CPU can take several minutes to answer.
 const healthDeadline = Date.now() + 6 * 60_000;
 while (Date.now() < healthDeadline) {
   health = await get("/api/health");

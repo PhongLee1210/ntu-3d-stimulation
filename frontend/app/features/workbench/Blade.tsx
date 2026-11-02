@@ -4,11 +4,6 @@ import { bladeCuts } from "./bladeCuts";
 import { Viz } from "./Viz";
 import { BLADE_VI, fmt, variantVi } from "./copy";
 
-/**
- * Lược dao: the corpus as one strip with the blade's cuts across it, instead of a sentence
- * about how many pieces came out (gameplay-direction §3). Cut spacing is the measured average
- * against the widest size a level offers; the real count is printed, not drawn.
- */
 export function Blade({
   variant,
   chunks,
@@ -18,7 +13,6 @@ export function Blade({
   variant: string;
   chunks: number;
   avgTokens: number;
-  /** ret.boundary_split: this run's answer sentence fell across two pieces. */
   split: boolean;
 }): ReactElement {
   const cuts = bladeCuts(avgTokens);

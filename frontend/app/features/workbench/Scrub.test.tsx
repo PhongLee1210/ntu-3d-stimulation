@@ -41,7 +41,6 @@ describe("Scrub", () => {
     expect(onFollow).toHaveBeenCalledExactlyOnceWith("c3");
   });
 
-  // A control that wraps would walk off the end of a run and look like it kept playing.
   it("stops at the ends rather than wrapping round", () => {
     const first = draw("c1");
     expect(screen.getByRole("button", { name: SCRUB_VI.prev })).toHaveProperty("disabled", true);
@@ -79,9 +78,6 @@ describe("Scrub", () => {
   });
 });
 
-// The Playwright a11y suite is the real gate but runs nine minutes later; these rules need no
-// layout. A range input with only an aria-label, or a button whose label is an icon, is exactly
-// the shape that fails there.
 it("answers axe's structural rules", async () => {
   const { container } = render(
     <Scrub cases={cases(10)} followedId="c3" onFollow={() => undefined} />,

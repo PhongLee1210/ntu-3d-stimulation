@@ -16,16 +16,9 @@ import {
   type Material,
 } from "three";
 
-/*
- * Decoder for public/models/cast.json (baked offline by tools/characters/bake-cast.mjs): one
- * rigidly skinned mesh per role with theme-recolourable clothes, plus the shared clips. Core
- * three only, no loaders and no textures.
- */
-
 export const CAST_ROLES = ["player", "lan", "guard", "registrar", "operator", "examiner"] as const;
 export type CastRole = (typeof CAST_ROLES)[number];
 
-/** The rigid rig every role shares, and each joint's parent (-1 = none). */
 export const CAST_JOINTS = [
   "root",
   "leg-left",
@@ -37,23 +30,17 @@ export const CAST_JOINTS = [
 ];
 export const CAST_PARENTS = [-1, 0, 0, 0, 3, 3, 3];
 
-/** Baked units -> scene units (player 0.671 -> 1.14). */
 export const CAST_SCALE = 1.7;
 
-/** Vertex colour slots: 0 keeps the baked colour, the others take a theme colour. */
 export const CAST_SLOTS = ["keep", "top", "bottom", "accent"] as const;
 
 export interface CastRoleData {
   source: string;
-  /** Rest translation of each joint. */
   rest: [number, number, number][];
-  /** Integer positions; divide by `CastJson.q`. */
   position: number[];
   joint: number[];
   slot: number[];
-  /** Slot 0: sRGB 0xRRGGBB. Other slots: lightness offset × 100 from the theme colour. */
   color: number[];
-  /** Packed triangle index; see `unpackIndex`. */
   index: number[];
 }
 
@@ -68,17 +55,12 @@ export interface CastJson {
   clips: CastClipJson[];
 }
 
-/** Theme colours of one figure (linear, as `new Color(hex)` gives them); no accent = top. */
 export interface CastLooks {
   top: Color;
   bottom: Color;
   accent?: Color;
 }
 
-/**
- * Undoes the bakers' high-water-mark coding: vertices are numbered in first-use order and each
- * entry is (vertices seen so far) - index, so 0 means "the next new vertex".
- */
 export function unpackIndex(packed: readonly number[]): number[] {
   let next = 0;
   return packed.map((e) => {
@@ -91,15 +73,12 @@ export function unpackIndex(packed: readonly number[]): number[] {
 export const isObject = (x: unknown): x is Record<string, unknown> =>
   typeof x === "object" && x !== null;
 
-/** An array of `length` finite numbers. */
 export const isNumbers = (a: unknown, length: number): a is number[] =>
   Array.isArray(a) && a.length === length && a.every((x) => Number.isFinite(x));
 
-/** An array of `length` integers in [0, below). */
 export const isIndices = (a: unknown, length: number, below: number): a is number[] =>
   isNumbers(a, length) && a.every((x) => Number.isInteger(x) && x >= 0 && x < below);
 
-/** A packed triangle index (whole triangles) whose every vertex is in [0, vertices). */
 export function isPackedIndex(packed: unknown, vertices: number): packed is number[] {
   return (
     Array.isArray(packed) &&
@@ -130,10 +109,6 @@ const isClip = (c: unknown) =>
   typeof c.uuid === "string" &&
   Array.isArray(c.tracks);
 
-/**
- * Checks a fetched cast.json before anything is built from it: a stale, truncated or edited file
- * gives null (keep the fallback) instead of NaN vertices or out-of-range draws.
- */
 export function parseCast(json: unknown): CastJson | null {
   if (!isObject(json) || json.version !== 1) return null;
   const { q, joints, parents, roles, clips } = json;
@@ -152,10 +127,6 @@ export function parseCast(json: unknown): CastJson | null {
 
 let request: Promise<CastJson | null> | null = null;
 
-/**
- * public/models/cast.json, fetched once per page. Null when it fails or does not parse: the
- * scene then keeps its statues, with one warning.
- */
 export function loadCast(): Promise<CastJson | null> {
   request ??= fetch("/models/cast.json")
     .then((response) => (response.ok ? (response.json() as Promise<unknown>) : null))
@@ -168,7 +139,6 @@ export function loadCast(): Promise<CastJson | null> {
   return request;
 }
 
-/** One SkinnedMesh (1 draw call), bound at the origin; place it through a parent group. */
 export function buildFigure(cast: CastJson, role: CastRole, material: Material): SkinnedMesh {
   const d = cast.roles[role];
   const n = d.joint.length;
@@ -206,11 +176,10 @@ export function buildFigure(cast: CastJson, role: CastRole, material: Material):
   const root = bones[0];
   if (root) mesh.add(root);
   mesh.bind(new Skeleton(bones));
-  mesh.frustumCulled = false; // a skinned bounding sphere goes stale; 7 figures are cheap to draw
+  mesh.frustumCulled = false;
   return mesh;
 }
 
-/** Frees what buildFigure made: the geometry and the skeleton's bone texture (R3F won't). */
 export function disposeFigure(mesh: SkinnedMesh): void {
   mesh.geometry.dispose();
   mesh.skeleton.dispose();
@@ -219,7 +188,6 @@ export function disposeFigure(mesh: SkinnedMesh): void {
 const hsl = { h: 0, s: 0, l: 0 };
 const c = new Color();
 
-/** Writes theme colours into the `color` attribute; only colours change, never positions. */
 export function paintFigure(mesh: SkinnedMesh, data: CastRoleData, looks: CastLooks): void {
   const attr = mesh.geometry.getAttribute("color");
   data.slot.forEach((s, i) => {
@@ -235,10 +203,6 @@ export function paintFigure(mesh: SkinnedMesh, data: CastRoleData, looks: CastLo
   attr.needsUpdate = true;
 }
 
-/**
- * The shared clips (rest, walk, run, talk, nod). Each keeps its baked uuid: mixer.clipAction
- * caches actions by uuid, so clips without distinct ones would share a single action.
- */
 export function castClips(cast: CastJson): AnimationClip[] {
   return cast.clips.map((clip) =>
     AnimationClip.parse({ ...clip, blendMode: NormalAnimationBlendMode }),
@@ -248,25 +212,19 @@ export function castClips(cast: CastJson): AnimationClip[] {
 export const CAST_CLIPS = ["rest", "walk", "run", "talk", "nod"] as const;
 export type CastClip = (typeof CAST_CLIPS)[number];
 
-/** Crossfade between states (s). */
 const FADE = 0.15;
-/** Ground speed (u/s) of walk and run at timeScale 1 and CAST_SCALE: the feet do not slide. */
 const WALK_STRIDE = 1.56;
 const RUN_STRIDE = 2.39;
 const RUN_FROM = 2.0;
 
-/** One figure's mixer with exactly one "state" action at full weight at a time. */
 export interface CastAnim {
   mixer: AnimationMixer;
   actions: Record<CastClip, AnimationAction>;
   current: CastClip;
-  /** Seconds the running gesture has left before it hands back to rest. */
   left: number;
-  /** Seconds the running crossfade has left. */
   fade: number;
 }
 
-/** Starts at rest, posed at once; nothing loops on its own, so an idle figure draws no frame. */
 export function createAnim(mesh: SkinnedMesh, clips: readonly AnimationClip[]): CastAnim {
   const mixer = new AnimationMixer(mesh);
   const action = (name: CastClip) => {
@@ -286,14 +244,12 @@ export function createAnim(mesh: SkinnedMesh, clips: readonly AnimationClip[]): 
   return { mixer, actions, current: "rest", left: 0, fade: 0 };
 }
 
-/** Switches state; talk and nod play `times` and then return to rest by themselves. */
 export function setState(
   a: CastAnim,
   name: CastClip,
   { fade = FADE, times = 1 }: { fade?: number; times?: number } = {},
 ): void {
   const gesture = name === "talk" || name === "nod";
-  // A gesture asked for again while it plays starts over (a greeting, then the dialog's talk).
   if (a.current === name && !gesture) return;
   const next = a.actions[name].reset();
   next.setLoop(LoopRepeat, gesture ? times : Infinity);
@@ -304,15 +260,9 @@ export function setState(
     a.current = name;
     a.fade = fade;
   }
-  // Hand back to rest one fade before the end, so rest fades in while the gesture still plays
-  // and the bind pose never shows for a frame.
   a.left = gesture ? next.getClip().duration * times - fade : 0;
 }
 
-/**
- * Advances one drawn frame. `speed` is the figure's ground speed (u/s; 0 for the NPCs).
- * Returns true while the figure still moves, i.e. needs another frame.
- */
 export function updateAnim(a: CastAnim, dt: number, speed: number, reduced: boolean): boolean {
   const fade = reduced ? 0 : FADE;
   if (speed > 0.05) {

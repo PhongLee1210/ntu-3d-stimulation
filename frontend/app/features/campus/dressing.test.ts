@@ -35,24 +35,13 @@ import { isBlocked } from "./movement";
 import { entranceLampSpots } from "./scene/campus";
 import { LABEL_ANCHORS } from "./scene/labels";
 
-/*
- * Placement checks of the campus dressing (placement plan §1, ported from its place.ts): every
- * prop stands clear of what the campus already has, of the people and of the labels, stays inside
- * the orbit envelope, and the blocking ones keep every walkable point and goal reachable.
- */
-
 const json = JSON.parse(
   readFileSync(path.resolve(process.cwd(), "public", "models", "props.json"), "utf8"),
 ) as {
-  // Not scene/props.ts's PropsJson: that module stays in the scene chunk (props.test.ts).
   q: number;
   props: Record<string, { position: number[]; mats: string[] }>;
 };
 
-/**
- * Reach of one placement from its spot (`r`, any height), its reach within 0.3 of its foot
- * (`foot`: what stands on the ground; a sign's arrow may overhang a path) and its top `h`.
- */
 function extent(row: Dressing) {
   const data = json.props[row.prop];
   if (!data) throw new Error(`no prop ${row.prop}`);
@@ -112,10 +101,8 @@ const d = (a: Vec2, b: Vec2) => Math.hypot(a.x - b.x, a.z - b.z);
 const inLake = (x: number, z: number, grow = 0) =>
   ((x - LAKE.x) / (LAKE.rx + grow)) ** 2 + ((z - LAKE.z) / (LAKE.rz + grow)) ** 2 < 1;
 
-/** Everyone's spot and talk spot (layout SPEAKERS: the librarian and the v0.4 cast). */
 const NPCS = SPEAKERS.map((s) => s.spot);
 const TALKS = SPEAKERS.map((s) => s.talk);
-/** Paved ground: layout's PATHS plus the domed hall's asphalt and the park path (backGrounds). */
 const PAVED = [
   ...PATHS.front,
   ...PATHS.low,
@@ -123,7 +110,6 @@ const PAVED = [
   [4.6, 8.6, -12.85, -11.25],
   [-1.3, -0.5, BASE.minZ, -16.6],
 ] as const;
-/** Lamps and statues buildTerrain already stands (with colonnades off: the hedge-arc lamps). */
 const STANDING: Vec2[] = [
   { x: 13.4, z: -3 },
   { x: 13.4, z: -7 },
@@ -142,7 +128,6 @@ const existing = OBSTACLES.filter((box) => !DRESSING_BLOCKS.includes(box));
 
 describe("dressing data", () => {
   it("places every baked prop but the cliff and names a theme colour slot for each material", () => {
-    // The wall rocks (cliff) read as concrete kerbs and are no longer placed (review r1).
     const placedIds = new Set(DRESSING.map((row) => row.prop));
     expect(Object.keys(json.props).filter((id) => !placedIds.has(id))).toEqual(["cliff"]);
     expect([...placedIds].filter((id) => !json.props[id])).toEqual([]);
@@ -157,7 +142,6 @@ describe("dressing data", () => {
   });
 
   it("paints no parasol a toadstool: dark pole, wooden frame, no white under the canopy", () => {
-    // A white stem under a red or orange cap read as an Amanita (review r1).
     const parasol = PROP_COLOURS["parasol-table"] ?? {};
     for (const swatch of ["3d3f4b", "505463"]) expect(parasol[`colormap:${swatch}`]).toBe("dark");
     for (const swatch of ["646981", "777c93"]) expect(parasol[`colormap:${swatch}`]).toBe("trunk");
@@ -175,8 +159,6 @@ describe("dressing data", () => {
     for (const box of DRESSING_BLOCKS) expect(OBSTACLES).toContain(box);
   });
   it("gives each block the turned footprint of its prop (boxes never turn with the prop)", () => {
-    // The food stall's box is given already turned by PROP_YAW0 and its yaw: changing either
-    // without swapping the box's halves would misalign its collision.
     const bad: string[] = [];
     for (const row of DRESSING) {
       const data = json.props[row.prop];
@@ -188,13 +170,10 @@ describe("dressing data", () => {
         let [hx, hz] = [0, 0];
         for (let i = 0; i < data.position.length; i += 3) {
           const [x = 0, y = 0, z = 0] = data.position.slice(i, i + 3).map((v) => v / json.q);
-          if (y * sy >= 0.3) continue; // the foot: what the player would walk into
-          // Turned like useDressing's matrix: a quaternion about +y by t.
+          if (y * sy >= 0.3) continue;
           hx = Math.max(hx, Math.abs(x * sx * Math.cos(t) + z * sz * Math.sin(t)));
           hz = Math.max(hz, Math.abs(-x * sx * Math.sin(t) + z * sz * Math.cos(t)));
         }
-        // Within 0.2: the bamboo's lowest leaves spread past its stalks. The stall unturned
-        // would miss by 0.37.
         if (hx > row.block[0] + 0.2 || hz > row.block[1] + 0.2)
           bad.push(`${row.prop} (${x0}, ${z0}): foot ${hx.toFixed(2)} × ${hz.toFixed(2)}`);
       }
@@ -280,7 +259,7 @@ describe("dressing placement (placement plan §1)", () => {
       for (const b of placed.slice(i + 1)) {
         if (a.row === b.row || a.kind === "stacked" || b.kind === "stacked") continue;
         const afloat = (p: Placed) => p.kind === "water" || p.kind === "pier";
-        const water = afloat(a) && afloat(b); // the boat is moored along the pier
+        const water = afloat(a) && afloat(b);
         if (d(a, b) < (a.r + b.r) * (water ? 0.6 : 0.85)) bad.push(`${a.name} × ${b.name}`);
       }
     });
@@ -288,10 +267,6 @@ describe("dressing placement (placement plan §1)", () => {
   });
 
   it("stays inside the ellipse the slab corners sweep, so no yaw puts a prop under a HUD corner", () => {
-    // The orbit's frame and its HUD corners (the two top ones and the 158 × 70 view controls,
-    // orbit-camera §1.3) are clear of the ellipse the slab's ground corners sweep. A point at
-    // ground distance r from the slab's centre and height h projects inside it at every yaw
-    // when r + √2·h stays within the slab's half diagonal.
     const centre = { x: 0, z: (BASE.minZ + BASE.maxZ) / 2 };
     const reach = Math.hypot(BASE.maxX, BASE.maxZ - centre.z);
     const worst = Math.min(
@@ -301,7 +276,6 @@ describe("dressing placement (placement plan §1)", () => {
   });
 
   it("lays the dock's deck just over the water, its posts sunk into the slab", () => {
-    // The water is at the slab top (y 0.008): a deck at the plan's 0.9 read as a jetty on stilts.
     const dock = DRESSING.find((r) => r.prop === "dock");
     if (!dock) throw new Error("no dock");
     const { h } = extent(dock);
@@ -311,13 +285,12 @@ describe("dressing placement (placement plan §1)", () => {
   });
 
   it("hides no person and no door in the home view", () => {
-    const tan = Math.tan(Math.asin(1 / Math.sqrt(3))); // the camera's elevation, 35.26°
+    const tan = Math.tan(Math.asin(1 / Math.sqrt(3)));
     const bad: string[] = [];
     for (const t of [...NPCS, ...SITES.map((s) => s.door)])
       for (const y0 of [0.3, 0.9])
         for (const p of placed) {
           if (p.h < 0.3) continue;
-          // The ray from (t, y0) to the camera runs along (1, 1)/√2 on the ground.
           const s = (p.x - t.x + (p.z - t.z)) / Math.SQRT2;
           const off = Math.abs(p.x - t.x - (p.z - t.z)) / Math.SQRT2;
           if (s > 0 && off < 0.8 * p.r && y0 + s * tan < p.h)
@@ -331,7 +304,6 @@ describe("dressing placement (placement plan §1)", () => {
     for (const [id, [lx, ly, lz]] of Object.entries(LABEL_ANCHORS)) {
       const label = toScreen(lx, ly, lz);
       for (const p of placed) {
-        // Centred on its anchor and standing on it: about 5.8 × 1.0 world units.
         const foot = toScreen(p.x, 0, p.z);
         const top = foot.sy + Math.sqrt(2 / 3) * p.h;
         if (
@@ -347,7 +319,6 @@ describe("dressing placement (placement plan §1)", () => {
 });
 
 describe("walking round the dressing", () => {
-  /** Free points of a 0.1 grid over WORLD_BOUNDS, and how many a flood fill from SPAWN reaches. */
   function reach(obstacles: readonly Box[]) {
     const h = 0.1;
     const nx = Math.round((WORLD_BOUNDS.maxX - WORLD_BOUNDS.minX) / h) + 1;
@@ -397,7 +368,6 @@ describe("walking round the dressing", () => {
     for (const goal of [...SITES.map((s) => s.door), ...TALKS, BACK_SPOT]) {
       const route = routeTo(SPAWN, goal);
       expect(route.at(-1), `${goal.x}, ${goal.z}`).toEqual(goal);
-      // Every leg is walkable: no waypoint inside a blocking prop, building or person.
       for (const w of route)
         expect(isBlocked(w, OBSTACLES, WORLD_BOUNDS), `${w.x}, ${w.z}`).toBe(false);
     }

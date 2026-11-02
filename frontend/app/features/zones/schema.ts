@@ -1,6 +1,5 @@
 import * as v from "valibot";
 
-/** Mirrors backend/src/vgame/content/models.py. */
 const Slug = v.pipe(v.string(), v.regex(/^[a-z][a-z0-9-]{1,31}$/));
 
 export const ZoneLocationSchema = v.picklist(["library", "watchtower", "market"]);
@@ -13,7 +12,6 @@ export const LevelSchema = v.object({
   brief: v.string(),
   concepts: v.array(v.string()),
   kind: v.picklist(["standard", "incident"]),
-  /** A level of an open zone can still be coming (Watchtower: W1 opens first). */
   status: v.optional(ZoneStatusSchema, "open"),
 });
 

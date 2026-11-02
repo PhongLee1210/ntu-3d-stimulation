@@ -1,9 +1,7 @@
 import { useTheme } from "./context";
 
 interface ThemeToggleProps {
-  /** `surface`: solid panel for use over the 3D scene (art §8.1). */
   tone?: "light" | "dark" | "surface";
-  /** Icon only below the `sm` breakpoint; the theme name stays available to screen readers. */
   compact?: boolean;
 }
 
@@ -13,7 +11,6 @@ const TONES = {
   surface: "border-line-strong bg-surface text-fg hover:bg-subtle",
 } as const;
 
-/** Cycles through the installed theme packs. Hidden when only one pack is installed. */
 export function ThemeToggle({ tone = "light", compact = false }: ThemeToggleProps) {
   const themes = useTheme((state) => state.themes);
   const activeId = useTheme((state) => state.activeId);

@@ -116,7 +116,6 @@ describe("the variant after hint 3 (N16)", () => {
   });
 
   it("offers no variant before hint 3, nor for a star that has none", () => {
-    // Hint 2 open, hint 3's gate still shut: the panel waits, and offers no variant yet.
     ladder(star1, book(2, true), L1, false, "lib-l1-r01");
     expect(screen.queryByRole("button", { name: HINTS_VI.variantRun })).toBeNull();
     cleanup();

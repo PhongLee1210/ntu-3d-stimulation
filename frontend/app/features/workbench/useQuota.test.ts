@@ -120,8 +120,6 @@ describe("useQuota", () => {
     const { result } = setup(variant);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(loadLedger(new Date()).pools.learner.used).toBe(0);
-    // Waited for, not read at once: the second fetch is called before its reply sets `left`,
-    // and under a full parallel run that gap lost the race and read null.
     await waitFor(() => expect(result.current.left).toBe(13));
   });
 

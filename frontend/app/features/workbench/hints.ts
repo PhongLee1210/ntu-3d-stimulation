@@ -4,44 +4,21 @@ import { SAMPLE_CALLS } from "./quota";
 import { cappedRun, sampleVerdict, type CaseView, type RunView } from "./run";
 import type { BlockType, Graph } from "./schema";
 
-/**
- * The hint ladder (roadmap-v0.4 N16, B4; L1-L3 §11). Hints 1 and 2 open on request after a
- * failed run; hint n+1 needs a free look -- a toy turned, a case followed, a failing case's
- * trace opened -- since hint n. No run is spent to be helped, and no hint lowers a bar.
- * Hint 3 is the worked solution, behind its own three-part gate (X28, `hint3Gate`).
- *
- * Every opened hint is logged in this browser, because the evidence on hints is mixed: they
- * get gamed (Baker et al. 2004) and feedback on help-seeking moved behaviour but not learning
- * (Aleven et al. 2016). The pilot needs the log to tell the two apart (docs/research
- * evidence-dossier §4).
- */
-
-/** The goal a hint aims at: the lowest star not earned, split where the lesson differs. */
 export type TargetKey =
   "s1" | "s1_source" | "s2" | "s3" | "s3_t01" | "s3_t02" | "s3_t03" | "s3_blocked" | "s3_asked";
 
 export interface Target {
   key: TargetKey;
   star: 1 | 2 | 3;
-  /** The case the hint names: the first failing one, or the costliest for the budget star. */
   n: number | null;
 }
 
 const failing = (c: CaseView) => c.graded?.counted === true && !c.graded.passed;
 
-/**
- * What the next hint should aim at after this run, or null when there is nothing to help with:
- * a recorded run is nobody's attempt, a run still going has no verdict, and a run the server's
- * daily cap cut short does not count (daily-shift §3.3).
- */
 export function hintTarget(levelId: string, run: RunView, best = 0): Target | null {
-  // A variant run is the self-fix after hint 3, not another attempt at the star.
   if (run.scope === "da_ghi" || run.scope === "bien_the") return null;
   if (run.phase !== "finished" || cappedRun(run)) return null;
 
-  // Stuck at the samples (L1 §11, X28; rà soát vòng 6): a failing sample counts for the lowest
-  // star not yet earned on this level -- star 1 before any star, star 2 once star 1 is in --
-  // since the samples stand in front of every star run.
   if (run.scope === "mau") {
     if (sampleVerdict(run) !== "failed" || best >= 3) return null;
     return best === 0 ? starOne(levelId, run) : best === 1 ? starTwo(run) : starThree(levelId, run);
@@ -54,7 +31,6 @@ export function hintTarget(levelId: string, run: RunView, best = 0): Target | nu
   return null;
 }
 
-/** Star 2 is the run's token budget, so the case to name is the costliest. */
 function starTwo(run: RunView): Target {
   const costliest = [...run.cases].sort(
     (a, b) => b.tokens.in + b.tokens.out - (a.tokens.in + a.tokens.out),
@@ -62,7 +38,6 @@ function starTwo(run: RunView): Target {
   return { key: "s2", star: 2, n: costliest?.n ?? null };
 }
 
-/** The Watchtower's star 3 asks for no blocked customer and no needless approval. */
 const W1 = "direct-injection";
 const W1_STAR_THREE = {
   "guard.blocked_benign": "s3_blocked",
@@ -71,7 +46,6 @@ const W1_STAR_THREE = {
 
 function starThree(levelId: string, run: RunView): Target {
   if (levelId === W1) {
-    // The labels are on the graded cases themselves, so the hint can name the case.
     const labelled = run.cases.find((c) => c.graded?.labels.some((l) => l in W1_STAR_THREE));
     const label = labelled?.graded?.labels.find((l) => l in W1_STAR_THREE);
     const key = label ? W1_STAR_THREE[label as keyof typeof W1_STAR_THREE] : "s3";
@@ -82,12 +56,10 @@ function starThree(levelId: string, run: RunView): Target {
 }
 
 function starOne(levelId: string, run: RunView): Target {
-  // On the Watchtower the attacks are the trap cases, and their receipts are on screen.
   const first = run.cases.find((c) => (levelId === W1 || c.role !== "trap") && failing(c));
   const flags = new Set(
     (run.report?.diagnosis ?? []).filter((d) => d.case === first?.id).map((d) => d.flag),
   );
-  // L1 has two lessons under star 1: nothing was retrieved, or the passages carried no code.
   const source =
     levelId === "grounded-citation" &&
     !flags.has("ret.gold_missing") &&
@@ -97,15 +69,11 @@ function starOne(levelId: string, run: RunView): Target {
 
 function starThreeKey(levelId: string, run: RunView): TargetKey {
   if (levelId !== "article-number-lookup") return "s3";
-  // L3's three traps teach three different things; the ids end in t01, t02, t03.
   const trap = run.cases.find((c) => c.role === "trap" && failing(c));
   const tail = trap?.id.slice(-3);
   return tail === "t01" || tail === "t02" || tail === "t03" ? `s3_${tail}` : "s3";
 }
 
-// --- What each hint says ----------------------------------------------------------------------
-
-/** What a hint points at on the screen: a case to follow, or a toy's slot on the bench. */
 export type Pointer =
   { kind: "case"; n: number } | { kind: "slot"; slot: BlockType; param?: string };
 
@@ -115,7 +83,6 @@ export interface Hint {
 }
 
 type Line = (n: number) => { text: string; pointer: Pointer | "case" };
-/** Hints 1, 2 and 3; the third is the worked example. */
 type Ladder = readonly [Line, Line, Line];
 
 const slot = (s: BlockType, param?: string): Pointer => ({
@@ -124,7 +91,6 @@ const slot = (s: BlockType, param?: string): Pointer => ({
   ...(param && { param }),
 });
 
-/** L1-L3 §11, hints 1 to 3. A "case" pointer resolves to the target's own case. */
 const HINTS: Readonly<Record<string, Partial<Record<TargetKey, Ladder>>>> = {
   "grounded-citation": {
     s1: [
@@ -294,8 +260,6 @@ const HINTS: Readonly<Record<string, Partial<Record<TargetKey, Ladder>>>> = {
       }),
     ],
   },
-  // Watchtower W1 (watchtower.md §3.6): the receipt first, then which layer let it through, then
-  // the worked solution. Pointers are the toys of the layers, so a hint never says "add a rule".
   "direct-injection": {
     s1: [
       (n) => ({
@@ -370,7 +334,6 @@ const HINTS: Readonly<Record<string, Partial<Record<TargetKey, Ladder>>>> = {
   },
 };
 
-/** Where a split target has no ladder of its own, the star's general one stands in. */
 const FALLBACK: Readonly<Record<TargetKey, TargetKey>> = {
   s1: "s1",
   s1_source: "s1",
@@ -393,8 +356,6 @@ export function hintFor(levelId: string, target: Target, n: 1 | 2 | 3): Hint | n
   return { text, pointer: pointer === "case" ? { kind: "case", n: caseN } : pointer };
 }
 
-// --- The ladder's state, per level ------------------------------------------------------------
-
 export interface HintEntry {
   at: number;
   target: TargetKey;
@@ -405,13 +366,8 @@ export interface HintEntry {
 export type StarKey = "1" | "2" | "3";
 
 export interface HintBook {
-  /** Per target: hints opened so far, and whether the player looked since the last one. */
   targets: Partial<Record<TargetKey, { opened: number; looked: boolean }>>;
   log: HintEntry[];
-  /**
-   * Per star: the configurations that failed a graded run there, across days (X28), and whether
-   * the latest one counted was a sample run -- which prices the next attempt at 3, not a star run.
-   */
   fails: Partial<Record<StarKey, { configs: string[]; lastSample: boolean }>>;
 }
 
@@ -434,7 +390,6 @@ const BookSchema = v.object({
   log: v.array(
     v.object({ at: Count, target: TargetKeySchema, star: v.picklist([1, 2, 3]), n: Count }),
   ),
-  // Optional: books written before B4b have no failures yet.
   fails: v.optional(
     v.record(
       v.picklist(["1", "2", "3"]),
@@ -449,9 +404,7 @@ export function loadHints(levelId: string): HintBook {
     const raw = window.localStorage.getItem(key(levelId));
     const parsed = v.safeParse(BookSchema, raw === null ? null : JSON.parse(raw));
     if (parsed.success) return parsed.output;
-  } catch {
-    /* blocked, full or not JSON: a fresh ladder */
-  }
+  } catch {}
   return { targets: {}, log: [], fails: {} };
 }
 
@@ -464,10 +417,6 @@ export function saveHints(levelId: string, book: HintBook): boolean {
   }
 }
 
-/**
- * The hint the player may open next for this target, or null. Every rung after the first needs
- * a look since the last; hint 3 also needs `gate3`, the rest of its gate (`hint3Gate`).
- */
 export function canOpen(book: HintBook, target: TargetKey, gate3 = false): 1 | 2 | 3 | null {
   const state = book.targets[target];
   if (!state || state.opened === 0) return 1;
@@ -477,18 +426,10 @@ export function canOpen(book: HintBook, target: TargetKey, gate3 = false): 1 | 2
 }
 
 export interface GateContext {
-  /** Learner calls left today; null when the server could not be read. */
   left: number | null;
-  /** The most a star run of this level costs: one call per case (L1 10, L2 and L3 13). */
   starPrice: number;
 }
 
-/**
- * Conditions 2 and 3 of hint 3's gate (L1 §11, X28): at least one graded run failed at this star
- * on a configuration of its own, and either three have, or the pool cannot pay for another
- * attempt -- a sample run when the latest counted failure was one, a star run otherwise.
- * Condition 1, a look since hint 2, is `canOpen`'s.
- */
 export function hint3Gate(book: HintBook, target: Target, ctx: GateContext): boolean {
   const fails = book.fails[String(target.star) as StarKey];
   if (!fails || fails.configs.length === 0) return false;
@@ -497,10 +438,6 @@ export function hint3Gate(book: HintBook, target: Target, ctx: GateContext): boo
   return ctx.left !== null && ctx.left < price;
 }
 
-/**
- * The book after a graded run failed at `star` on configuration `config`. Running the same
- * configuration again replays its answers for 0 calls, so it is not another attempt.
- */
 export function recordFail(book: HintBook, star: 1 | 2 | 3, config: string, sample: boolean) {
   const key = String(star) as StarKey;
   const known = book.fails[key];
@@ -514,7 +451,6 @@ export function recordFail(book: HintBook, star: 1 | 2 | 3, config: string, samp
   };
 }
 
-/** A short, stable name for a configuration: FNV-1a over the graph JSON the run sent. */
 export function configKey(body: string): string {
   let hash = 0x811c9dc5;
   for (let i = 0; i < body.length; i += 1) {
@@ -524,7 +460,6 @@ export function configKey(body: string): string {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
-/** The book after hint n of `target` was opened at `at`. The caller checks `canOpen` first. */
 export function open(book: HintBook, target: TargetKey, star: 1 | 2 | 3, at: number): HintBook {
   const opened = (book.targets[target]?.opened ?? 0) + 1;
   return {
@@ -534,10 +469,6 @@ export function open(book: HintBook, target: TargetKey, star: 1 | 2 | 3, at: num
   };
 }
 
-/**
- * A free look: it counts toward the next hint of every ladder already started. A ladder only
- * exists once its hint 1 is open, so a look taken before that has nothing to count toward.
- */
 export function look(book: HintBook): HintBook {
   const targets: HintBook["targets"] = {};
   for (const [k, state] of Object.entries(book.targets) as [TargetKey, { opened: number }][]) {
@@ -546,9 +477,6 @@ export function look(book: HintBook): HintBook {
   return { ...book, targets };
 }
 
-// --- N17: the toys a bench edit touched -------------------------------------------------------
-
-/** Block types whose node was added, removed or had a parameter turned between two graphs. */
 export function firstTouchTypes(before: Graph, after: Graph): BlockType[] {
   const byId = (g: Graph) => new Map(g.nodes.map((node) => [node.id, node]));
   const a = byId(before);
@@ -564,7 +492,6 @@ export function firstTouchTypes(before: Graph, after: Graph): BlockType[] {
 
 const TOUCHED_KEY = "vg.touched.v1";
 
-/** Toys this browser has already been told about: across levels, since a toy means the same. */
 export function loadTouched(): BlockType[] {
   try {
     const raw = window.localStorage.getItem(TOUCHED_KEY);
@@ -575,19 +502,13 @@ export function loadTouched(): BlockType[] {
   }
 }
 
-/**
- * The toys among `touched` met for the first time, now remembered. A store that cannot be
- * written still answers, so the line shows once per page rather than never.
- */
 export function firstTouches(touched: readonly BlockType[]): BlockType[] {
   const seen = new Set(loadTouched());
   const fresh = touched.filter((type) => !seen.has(type));
   if (fresh.length > 0) {
     try {
       window.localStorage.setItem(TOUCHED_KEY, JSON.stringify([...seen, ...fresh]));
-    } catch {
-      /* the line still shows this time */
-    }
+    } catch {}
   }
   return fresh;
 }

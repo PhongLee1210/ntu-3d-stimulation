@@ -10,7 +10,6 @@ afterEach(() => {
   document.documentElement.classList.remove(PROJECTOR_CLASS);
 });
 
-/** A data router, since `setSearchParams` needs one to navigate. */
 function at(url: string) {
   let router: ReturnType<typeof createMemoryRouter> | undefined;
   const wrapper = ({ children }: { children: ReactNode }) => {

@@ -5,7 +5,6 @@ import { hubStore } from "./store";
 import { FETCH_TIMEOUT_MS, useSkyClock, WEATHER_EVERY_MS, WEATHER_RETRY_MS } from "./useSkyClock";
 
 const HANOI = { lat: 21.0285, lon: 105.8542 };
-/** Open-Meteo's reply (GMT, no offset) and what the store gets from it. */
 const upstream = { current: { time: "2026-10-08T14:00", temperature_2m: 26.43, weather_code: 51 } };
 const body = { condition: "drizzle", temperature_c: 26.4, updated_at: "2026-10-08T14:00:00.000Z" };
 const reply = (status: number) =>
@@ -31,7 +30,6 @@ afterEach(() => {
   localStorage.clear();
 });
 
-/** Lets the fetch promise chain settle under fake timers. */
 const settle = () =>
   act(async () => {
     for (let i = 0; i < 5; i += 1) await Promise.resolve();
@@ -76,7 +74,6 @@ describe("useSkyClock", () => {
     await act(() => vi.advanceTimersByTimeAsync(WEATHER_EVERY_MS - 1000));
     expect(fetch).toHaveBeenCalledTimes(2);
 
-    // Due while hidden: nothing until the tab shows again, then one call.
     hidden = true;
     await act(() => vi.advanceTimersByTimeAsync(5 * 60_000));
     expect(fetch).toHaveBeenCalledTimes(2);
@@ -114,7 +111,7 @@ describe("useSkyClock", () => {
   });
 
   it("moves to the next phase within a minute of the sun crossing 6°", async () => {
-    vi.setSystemTime(Date.parse("2026-10-08T17:08:00+07:00")); // dusk starts 17:09
+    vi.setSystemTime(Date.parse("2026-10-08T17:08:00+07:00"));
     vi.stubGlobal(
       "fetch",
       vi.fn(() => new Promise<Response>(() => undefined)),

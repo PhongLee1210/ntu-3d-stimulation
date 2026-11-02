@@ -43,7 +43,6 @@ describe("hub store", () => {
     store.getState().openDialog("lan");
     expect(store.getState().dialog).toEqual({ who: "lan", lines: "first" });
     expect(store.getState().met).toEqual({});
-    // The camera and the speaker's talk run in the scene's frames.
     expect(wake).toHaveBeenCalledOnce();
 
     store.getState().closeDialog();
@@ -155,7 +154,6 @@ describe("hub store", () => {
 
 describe("view yaw (orbit-camera §2, §3)", () => {
   const deg = (d: number) => (d * Math.PI) / 180;
-  /** Runs the frame loop's ease to its end. */
   const settle = (store: ReturnType<typeof createHubStore>) => {
     const { view } = store.getState();
     if (view.to !== null) view.yaw = wrapAngle(view.to);
@@ -173,7 +171,6 @@ describe("view yaw (orbit-camera §2, §3)", () => {
     store.getState().rotateView(1);
     expect(view.to).not.toBeNull();
     expect(wrapAngle(view.to ?? 0)).toBeCloseTo(deg(-135));
-    // Clockwise all the way: 180° from where the view shows, not back the short way.
     expect((view.to ?? 0) - view.from).toBeCloseTo(Math.PI);
     expect(view.duration).toBeCloseTo(0.3);
     expect(wake).toHaveBeenCalledTimes(2);
@@ -218,7 +215,6 @@ describe("view yaw (orbit-camera §2, §3)", () => {
   });
 });
 
-/** Placeholder names: the real ones are theme data (npcs.test.ts keeps them out of app/). */
 const NAMES = {
   guard: { name: "role guard" },
   registrar: { name: "role registrar" },
@@ -272,7 +268,6 @@ describe("hub sky (campus v0.4 W3)", () => {
     expect(look).toMatchObject({ sky: "day", weather: "rain", bake: "wet", clouds: "full" });
     expect(wake).toHaveBeenCalledTimes(1);
 
-    // Same body: no write at all. Newer reading, same group: the chip's data, the same look.
     store.getState().setWeather({ ...rain });
     expect(listener).toHaveBeenCalledTimes(1);
     store

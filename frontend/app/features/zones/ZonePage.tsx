@@ -10,7 +10,6 @@ import { ConceptChips, IncidentBadge, ZONE_BAR, ZoneStatusText } from "./ui";
 
 const BACK_LABEL = "Về khuôn viên";
 
-/** The hub URL that puts the player back at this zone's door (art §4.6). */
 const hubAt = (zone: Zone | null) => (zone ? `/play?at=${zone.location}` : "/play");
 
 function Frame({ back, children }: { back: string; children: ReactNode }) {
@@ -37,7 +36,6 @@ function ZoneHeader({ zone }: { zone: Zone }) {
 
 const byOrder = (zone: Zone) => [...zone.levels].sort((a, b) => a.order - b.order);
 
-/** `/play/:zoneId`: an open zone with its levels, or the locked / not found / error state. */
 export function ZonePage({ data, onRetry }: { data: ZonePageData; onRetry: () => void }) {
   switch (data.kind) {
     case "open":
@@ -70,7 +68,6 @@ export function ZonePage({ data, onRetry }: { data: ZonePageData; onRetry: () =>
                     <Link
                       to={`/play/${data.zone.id}/${level.id}`}
                       aria-label={`Vào màn ${level.title}`}
-                      // No progress is stored yet, so the first level is the one to start with.
                       className={buttonClass(
                         index === 0 ? "primary" : "secondary",
                         "w-full sm:w-auto",
@@ -138,7 +135,6 @@ export function ZonePage({ data, onRetry }: { data: ZonePageData; onRetry: () =>
   }
 }
 
-/** Static loading frame (no shimmer), shaped like the open zone page (art §9.4). */
 export function ZonePageSkeleton() {
   const block = "bg-subtle rounded-sm";
   return (

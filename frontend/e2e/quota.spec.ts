@@ -2,8 +2,6 @@ import AxeBuilder from "@axe-core/playwright";
 
 import { expect, mockWorkbenchApi, sse, test } from "./fixtures";
 
-// roadmap-v0.4 §5.1: the day's pool of fresh AI calls beside Mở ca.
-
 const L1 = "/play/library/grounded-citation";
 const quota = (learnerDaily: number) => ({
   cap: 500,
@@ -56,7 +54,6 @@ test("runs the samples alone when the pool covers only them, and says so", async
   await expect(
     page.getByText("Cả 3 câu mẫu đạt. Quỹ hôm nay không đủ cho run chấm sao", { exact: false }),
   ).toBeVisible();
-  // One POST: all three samples passed, and still no star run went out.
   expect(mock.posts.map((p) => p.scope)).toEqual(["mau"]);
   await expect(page.getByRole("heading", { name: "Kết quả ca tối nay" })).toBeHidden();
 });

@@ -27,7 +27,6 @@ test.describe("campus hub", () => {
     consoleErrors,
   }) => {
     await mockApi(page);
-    // WebGL draw calls of the last frame that drew anything (the page exposes no renderer.info).
     await page.addInitScript(() => {
       const proto = WebGL2RenderingContext.prototype as unknown as Record<
         string,
@@ -58,14 +57,11 @@ test.describe("campus hub", () => {
     await page.goto("/play?debug=frames");
     const frames = await waitForIdleScene(page);
     await expect(page.locator("[data-scene-loader]")).toHaveCount(0);
-    // sceneBudget() with the cast is 19 with the interaction ring; at the spawn the ring is hidden.
-    // Pins every mesh CampusScene draws (the contact overlay too), which the unit budget cannot.
     await expect(page.locator("html")).toHaveAttribute("data-cast", "ready");
     const drawCalls = () =>
       page.evaluate(() => (window as unknown as { drawCalls?: number }).drawCalls);
     expect(await drawCalls()).toBe(18);
     const before = await frames();
-    // Measuring idleness needs time to pass; no state is being waited for here.
     await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 2000)));
     expect(await frames()).toBe(before);
     expect(before).toBeGreaterThan(0);
@@ -95,7 +91,6 @@ test.describe("campus hub", () => {
     const teach = dialog.getByRole("button", { name: "Dạy trợ lý tra sách" });
     await expect(teach).toBeFocused();
 
-    // Focus stays inside the dialog.
     await page.keyboard.press("Tab");
     await expect(dialog.getByRole("button", { name: "Vào Thư viện" })).toBeFocused();
     await page.keyboard.press("Tab");
@@ -107,13 +102,11 @@ test.describe("campus hub", () => {
     await expect(dialog).toBeHidden();
     await expect(talk).toBeFocused();
 
-    // Second meeting in the same session: one line.
     await page.keyboard.press("Enter");
     await expect(dialog.getByText("Trợ lý vẫn đang chờ bạn ở quầy tra cứu.")).toBeVisible();
     await expect(teach).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/play\/library\/grounded-citation$/);
-    // Focus lands on the level's h1, so a screen reader hears the new page.
     await expect(page.getByRole("heading", { level: 1, name: "Thôi bịa điều luật" })).toBeFocused();
     expect(consoleErrors).toEqual([]);
   });
@@ -135,7 +128,6 @@ test.describe("campus hub", () => {
     await page.getByRole("button", { name: "Nói chuyện với cô Lan", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "Cô Lan" });
     await dialog.getByRole("button", { name: "Dạy trợ lý tra sách" }).click();
-    // A sleeping API can take half a minute: the dialog stays and says the level is opening.
     const opening = dialog.getByRole("button", { name: "Đang mở màn…" });
     await expect(opening).toBeFocused();
     await expect(opening).toHaveAttribute("aria-busy", "true");
@@ -155,17 +147,11 @@ test.describe("campus hub", () => {
   test("walks to the librarian with the arrow keys and opens the dialog with E", async ({
     page,
   }) => {
-    // Software WebGL under parallel load can drop to a few frames per second.
     test.slow();
     await mockApi(page);
     await page.goto("/play?debug=frames");
     await waitForIdleScene(page);
 
-    // From the spawn the librarian is west and a little ahead: screen up + left held together
-    // walks due west past her. Both key presses are dispatched in one task; two separate CDP
-    // presses leave frames in between where only one key is held, and on a slow software
-    // renderer that drifts the player off the line. The keys are released in the page the moment
-    // her hint appears, so the player stops beside her instead of walking on to the library.
     await page.evaluate(
       ({ hintId, codes }) => {
         const send = (type: "keydown" | "keyup") => {
@@ -201,7 +187,6 @@ test.describe("campus hub", () => {
     page,
     consoleErrors,
   }) => {
-    // Two walks of about 26 units each; software WebGL can drop to a few frames per second.
     test.slow();
     await mockApi(page);
     await page.goto("/play?debug=frames");
@@ -236,8 +221,6 @@ test.describe("campus hub", () => {
     await mockApi(page);
     await page.goto("/play?debug=frames");
     await waitForIdleScene(page);
-    // Every 8th animation frame comes 700 ms late, as on a starved CI runner (software WebGL):
-    // a walk then has gaps between frames longer than any quiet spell an idle check could use.
     await page.evaluate(() => {
       const raf = window.requestAnimationFrame.bind(window);
       let n = 0;
@@ -249,7 +232,6 @@ test.describe("campus hub", () => {
     await zonesButton.click();
     await list.getByRole("button", { name: "Đi tới khuôn viên phía sau", exact: true }).click();
     await waitForIdleScene(page, 45_000);
-    // The list names the way back only once the player stands behind the main building.
     await zonesButton.click();
     await expect(list.getByRole("button", { name: "Về mặt trước", exact: true })).toBeVisible({
       timeout: 1000,
@@ -264,7 +246,6 @@ test.describe("campus hub", () => {
       testInfo.project.name !== "desktop",
       "The awning's pixel is for the 1280×800 overview.",
     );
-    // Three walks; software WebGL can drop to a few frames per second.
     test.slow();
     await mockApi(page);
     await page.goto("/play?debug=frames");
@@ -272,7 +253,6 @@ test.describe("campus hub", () => {
     const hint = (text: string) =>
       page.locator('[aria-live="polite"]').getByText(text, { exact: true });
 
-    // The south awning hangs outside the market's footprint (QA r4).
     const view = viewFor(1280, 800);
     const centre = cameraCentre(desiredCentre({ sx: 0, sy: 0 }, { sx: 0, sy: 0 }, view), view);
     const awning = toScreen(9.0, 1.5, 5.55);
@@ -282,9 +262,7 @@ test.describe("campus hub", () => {
     );
     await expect(hint("Chợ model · Sắp mở")).toBeVisible();
 
-    // World labels are decoration for assistive tech, but a click on one walks to its door.
     await page.locator("button", { hasText: "Tháp canh" }).click();
-    // The watchtower is open: its hint is the action itself, a button, not a live-region line.
     await expect(page.getByRole("button", { name: "Nhấn E để vào Tháp canh" })).toBeVisible();
 
     await page.getByText("!", { exact: true }).click();
@@ -296,7 +274,6 @@ test.describe("campus hub", () => {
     page,
     consoleErrors,
   }) => {
-    // 21:00 in Hanoi: night. The fixture pins "Cố định ban ngày"; the chip switches to live.
     await page.clock.setFixedTime(new Date("2026-10-08T21:00:00+07:00"));
     await mockApi(page);
     await page.goto("/play?debug=frames");
@@ -306,10 +283,7 @@ test.describe("campus hub", () => {
         "data-looks",
         `library:${library} watchtower:${STARS_SAVED ? "open" : "lit"} market:coming_soon`,
       );
-    // No star yet: open, or lit while nothing saves stars (STARS_SAVED, QA r3). With the flag
-    // off this pair cannot tell a broken storage → siteLooks path; flipping it checks both.
     await looks(STARS_SAVED ? "open" : "lit");
-    // A library star (N9) under the progress module's storage key, read when the scene mounts.
     await page.evaluate(() =>
       localStorage.setItem(
         "vg-progress-v1",
@@ -319,8 +293,6 @@ test.describe("campus hub", () => {
     await page.reload();
     const frames = await waitForIdleScene(page);
     await looks("lit");
-    // Overlapping sun shadows darken once only through the stencil test, which needs a stencil
-    // buffer; without one the test is off and fails silently (QA r2).
     const stencil = await page.evaluate(
       () => document.querySelector("canvas")?.getContext("webgl2")?.getContextAttributes()?.stencil,
     );
@@ -347,7 +319,6 @@ test.describe("campus hub", () => {
     await mockApi(page);
     await page.goto("/play?debug=frames");
     await waitForIdleScene(page);
-    // The inherited name is no library star: open (lit only while STARS_SAVED is off).
     await expect(page.locator("html")).toHaveAttribute(
       "data-looks",
       `library:${STARS_SAVED ? "open" : "lit"} watchtower:${STARS_SAVED ? "open" : "lit"} market:coming_soon`,
@@ -357,7 +328,6 @@ test.describe("campus hub", () => {
 
   test("keeps the weather chip when the scene cannot start", async ({ page }) => {
     await page.addInitScript(() => {
-      // Test double: a device without WebGL.
       // eslint-disable-next-line @typescript-eslint/unbound-method -- re-bound with apply below
       const getContext = HTMLCanvasElement.prototype.getContext;
       HTMLCanvasElement.prototype.getContext = function (
@@ -371,7 +341,6 @@ test.describe("campus hub", () => {
     await page.goto("/play");
     await expect(page.getByText("Trình duyệt chưa hiển thị được cảnh 3D.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Các khu" })).toBeVisible();
-    // Weather is information too: the chip and its display choice need no WebGL.
     await expect(page.getByRole("button", { name: "30°C, Trời quang, Hà Nội" })).toBeVisible();
   });
 
@@ -410,8 +379,6 @@ test.describe("campus hub", () => {
     const zones = await page.getByRole("button", { name: "Các khu" }).boundingBox();
     expect(chip && zones).toBeTruthy();
     if (!chip || !zones) return;
-    // The compact chip (icon + "30°C", about 88 px): the gap between the groups stays well over
-    // the 8 px inside a group (campus v0.4 W0.3).
     expect(chip.width).toBeLessThanOrEqual(96);
     expect(zones.x - (chip.x + chip.width)).toBeGreaterThanOrEqual(48);
   });

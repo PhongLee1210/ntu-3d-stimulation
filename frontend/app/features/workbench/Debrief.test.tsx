@@ -61,7 +61,6 @@ describe("Debrief", () => {
   });
 
   it("offers an enum for line 4, and records exactly the option picked", () => {
-    // L1's starter has no search block attached yet, so "Gắn Vòm Sao" is on offer.
     const picks: unknown[] = [];
     draw({ onPick: (p) => picks.push(p) });
     fireEvent.click(screen.getByRole("radio", { name: "Gắn Vòm Sao" }));
@@ -69,7 +68,6 @@ describe("Debrief", () => {
   });
 
   it("offers no option the level disallows", () => {
-    // L1's allowed_blocks has only vector_search as an optional search block.
     draw();
     expect(screen.queryByRole("radio", { name: /Tủ ngăn kéo/ })).toBeNull();
     expect(screen.queryByRole("radio", { name: /Kính lúp/ })).toBeNull();

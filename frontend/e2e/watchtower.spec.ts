@@ -1,11 +1,6 @@
 import { readText } from "../app/features/workbench/test-fixtures";
 import { expect, mockWorkbenchApi, test } from "./fixtures";
 
-/**
- * Watchtower W1 on the bench (watchtower.md §3), reached from the open zone page; W2 and W3 are
- * listed there as coming. The streams are the engine's own runs of the starter and the
- * reference graph with a scripted model (e2e/data/README.md).
- */
 const W1 = "/play/watchtower/direct-injection";
 const stream = (name: "starter" | "reference") => readText("e2e", "data", `run-w1-${name}.sse`);
 
@@ -34,20 +29,17 @@ test.describe("watchtower W1", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.locator("[data-scene-total]")).toHaveText(/HOÀN TIỀN 5\.000\.000 đ/);
 
-    // The starter: no bell, so the tool branch runs red straight to the ledger.
     const branch = page.locator("[data-pipe-branch]");
     await expect(branch).toHaveCount(2);
     for (const pipe of await branch.all())
       await expect(pipe).toHaveAttribute("data-pipe", "unguarded");
 
-    // The net opens first: a phrase is pressed into it from the tray.
     await page.getByRole("switch", { name: "Gắn Lưới cụm từ" }).check();
     const phrase = page.getByRole("button", { name: "quản trị viên", exact: true });
     await phrase.click();
     await expect(phrase).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("[data-gauge-phrase]")).toHaveCount(1);
 
-    // The bell, attached from its socket on the machine, gates the branch.
     await page.getByRole("button", { name: "Gắn Chuông duyệt" }).click();
     for (const pipe of await branch.all()) await expect(pipe).toHaveAttribute("data-pipe", "gated");
 

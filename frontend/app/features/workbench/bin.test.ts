@@ -20,8 +20,6 @@ describe("binFill", () => {
   it("will not let the lid close when the pack is over budget", () => {
     const fill = binFill(pack(2500, 100, 2000));
     expect(fill.overflow).toBe(true);
-    // The bands still describe real proportions of the budget, so the overflow is visible as
-    // something sticking out rather than as a bar quietly pinned at 100 %.
     expect(fill.docsPct + fill.queryPct).toBeGreaterThan(100);
   });
 
@@ -40,8 +38,6 @@ describe("binFill", () => {
 
 describe("the part that will not fit", () => {
   it("measures how far past the rim the pack goes", () => {
-    // 3.600 of 3.000 is a fifth more than the bin holds, and that fifth is what the lid
-    // cannot close over.
     expect(binFill(pack(3500, 100, 3000)).overPct).toBeCloseTo(20, 6);
   });
 
@@ -52,8 +48,6 @@ describe("the part that will not fit", () => {
   });
 
   it("does not clamp the overspill at the rim", () => {
-    // Four times the budget stands three bins past the rim. Clamping at 100 would make every
-    // size of mistake past double the budget read the same.
     expect(binFill(pack(12000, 0, 3000)).overPct).toBeCloseTo(300, 6);
     expect(binFill(pack(6000, 0, 3000)).overPct).toBeCloseTo(100, 6);
   });
@@ -76,8 +70,6 @@ describe("droppedRanks", () => {
   const ranked = [item("a1", 1), item("d4", 4), item("d5", 5), item("d6", 6), item("d7", 7)];
 
   it("gives each cut passage the rank it had in the list the packer was handed", () => {
-    // pack.dropped is ids in cut order and carries no rank: the rank is a join, the same one
-    // the bin's own contents already need.
     expect(droppedRanks(["d4", "d5", "d6", "d7"], ranked).pieces).toEqual([
       { id: "d4", rank: 4 },
       { id: "d5", rank: 5 },
@@ -91,7 +83,6 @@ describe("droppedRanks", () => {
   });
 
   it("keeps cut order, which is not rank order", () => {
-    // on_overflow cuts from the tail, but a fused list can hand them over in another order.
     expect(droppedRanks(["d6", "d4"], ranked).pieces.map((p) => p.id)).toEqual(["d6", "d4"]);
     expect(droppedRanks(["d6", "d4"], ranked).range).toEqual([4, 6]);
   });

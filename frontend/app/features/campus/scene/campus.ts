@@ -66,26 +66,12 @@ import {
   type PartStyle,
 } from "./primitives";
 
-/*
- * Procedural campus, built to campus-scene v0.2 §5 and v0.3 §6 with the helpers of art-direction
- * §5.0.
- * Each exported builder returns the merged geometry of one draw call. Coordinates are absolute
- * world units from layout.ts (D9).
- */
-
-/** Stable pseudo-random in [0, 1) for an index and a seed. */
 const hash = (i: number, k: number) => {
   const s = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
   return s - Math.floor(s);
 };
 
 type Parts = BufferGeometry[];
-/**
- * Part maker that bakes the palette's light preset; no colour keeps the vertex colours. With a
- * `windows` seed, after dark a share of the panes painted `pal.glass` (0.33 × darkness, picked by
- * a hash of the pane's index, so a pane lit at dusk stays lit at night) glows `litDim` instead:
- * the landmark and the back campus (weather-time-visuals §1.3). The zones keep N9.
- */
 const paint = (pal: Palette, windows?: number) => {
   let pane = 0;
   return (
@@ -109,8 +95,6 @@ const range = (n: number) => Array.from({ length: n }, (_, i) => i);
 const grid = <T>(xs: readonly number[], ys: readonly number[], f: (x: number, y: number) => T) =>
   xs.flatMap((x) => ys.map((y) => f(x, y)));
 
-// --- Trees (shared by the contact overlay and the instanced meshes) ---------------------------
-
 export interface TreeInstance {
   x: number;
   z: number;
@@ -121,7 +105,6 @@ export interface TreeInstance {
   kind: "round" | "cypress";
 }
 
-/** Each list brings its kind and size factor; park trees are small round trees (v0.3 §6.5). */
 const TREE_LISTS = [
   { trees: ROUND_TREES, kind: "round", factor: 1 },
   { trees: CYPRESS_TREES, kind: "cypress", factor: 1 },
@@ -151,9 +134,6 @@ export function treeMatrix(tree: TreeInstance): Matrix4 {
   );
 }
 
-// --- Terrain, paths, plaza, fountain, lake, lamps (G-terrain) -------------------------------
-
-/** Flat quad on the ground from four corners in order, one colour. */
 function groundQuad(
   pal: Palette,
   [a, b, c, d]: readonly [Vec2, Vec2, Vec2, Vec2],
@@ -168,7 +148,6 @@ function groundQuad(
   );
 }
 
-/** Flat fan from `centre` through consecutive `points` (n − 1 triangles), one colour. */
 function fan(
   pal: Palette,
   centre: Vec2,
@@ -183,7 +162,6 @@ function fan(
   return paint(pal)(groundTriangles(vertices, y), undefined, flags);
 }
 
-/** Closed track outline: 13 points round (xc, za) bulging to +z, 13 round (xc, zb) to −z (v0.3 §6.0). */
 function oval(xc: number, za: number, zb: number, r: number): Vec2[] {
   return range(26).map((i) => {
     const a = (PI * (i % 13)) / 12 + (i < 13 ? 0 : PI);
@@ -200,7 +178,6 @@ function lamp({ x, z }: Vec2, pal: Palette): Parts {
   ];
 }
 
-/** Statue on a pedestal: life size on the lawn walks, `small` in the fountain basin. */
 function statue(x: number, z: number, pal: Palette, small = false): Parts {
   const P = paint(pal);
   const { wall, trim } = pal.lm;
@@ -227,7 +204,6 @@ const shore = (i: number, k: number, grow = 0): Vec2 => {
   };
 };
 
-/** Band between two lake ellipses (scale k, plus `grow` units outwards). */
 function lakeBand(
   pal: Palette,
   k0: number,
@@ -247,13 +223,10 @@ function lakeBand(
   );
 }
 
-/** Width of the static foam ring just inside the shore (N8). */
 const FOAM = 0.22;
 
 function lake(pal: Palette): Parts {
   const water = (p: Vec2) => ({ ...p, color: pal.water });
-  // The water stops where the foam starts: side by side at one height, so they never z-fight.
-  // Deepest at the slab's corner, where the cut side shows the water (art §5.1 T1).
   const fan = range(LAKE_STEPS).flatMap((i) => [
     { ...LAKE, color: pal.deep },
     water(shore(i, 1, -FOAM)),
@@ -266,7 +239,6 @@ function lake(pal: Palette): Parts {
   ];
 }
 
-/** Fountain plaza: concentric paving, curved steps, hedge and roses, tiered basin, statues. */
 function fountain(pal: Palette): Parts {
   const P = paint(pal);
   const { x: px, z: pz } = PLAZA;
@@ -316,7 +288,6 @@ function fountain(pal: Palette): Parts {
   ];
 }
 
-/** Rose garden: six hedged beds on gravel, front-left of the plaza. */
 function roseGarden(pal: Palette): Parts {
   const P = paint(pal);
   return ROSE_BEDS.flatMap(([x0, z0]) => {
@@ -330,7 +301,6 @@ function roseGarden(pal: Palette): Parts {
   });
 }
 
-/** Balustrade across the lawn in front of the plaza, one run on each side of the axis. */
 function balustrades(pal: Palette): Parts {
   const P = paint(pal);
   const { wall, trim } = pal.lm;
@@ -347,7 +317,6 @@ function balustrades(pal: Palette): Parts {
   });
 }
 
-/** Six dark inlaid rays on the forecourt, converging on the steps. */
 function forecourtRays(pal: Palette) {
   const rays = [
     [0.55, 1.25],
@@ -371,21 +340,16 @@ function forecourtRays(pal: Palette) {
   );
 }
 
-/** The examiner's car park and the path north past building G (back of campus). */
 const ASPHALT = [4.6, 8.6, -12.85, -11.25] as const;
 const NORTH_PATH = [-1.3, -0.5, BASE.minZ, -16.6] as const;
-/** Every paved rect: each gets a kerb under it (art §5.1 T11). */
 export const PAVED = [...PATHS.front, ...PATHS.low, ...PATHS.back, ASPHALT, NORTH_PATH];
-/** How far a kerb shows round its paving, and its height: under every path, over the park lawn. */
 export const KERB = 0.06;
 export const KERB_Y = 0.0105;
 
-/** Lanes to the back, the back park, courts, running track and open-air stage (v0.3 §6.1). */
 function backGrounds(pal: Palette): Parts {
   const P = paint(pal);
   const track = { xc: 12.0, za: -13.6, zb: -18.6 };
   const trackCentre = { x: track.xc, z: (track.za + track.zb) / 2 };
-  /** The track outline at radius r, closed (27 points, 26 segments). */
   const loop = (r: number) => {
     const points = oval(track.xc, track.za, track.zb, r);
     return [...points, points[0] ?? trackCentre];
@@ -417,12 +381,9 @@ function backGrounds(pal: Palette): Parts {
     { x0: 2.7, x1: 4.6 },
   ];
   return [
-    // E1, E2, E4, E5, E7 lanes; E6 forecourt of the domed hall. E1 runs on to x 13.1 so the
-    // corner at the lane mouth is paved.
     ...PATHS.back.map(([x0, x1, z0, z1]) => P(rect(x0, x1, z0, z1, 0.012), pal.path)),
     P(rect(...ASPHALT, 0.012), pal.asphalt),
     P(rect(...NORTH_PATH, 0.012), pal.path),
-    // K1, K2: park lawn and its paths.
     P(rect(-14.6, -1.6, -21.4, -16.4, 0.01), pal.park),
     groundQuad(
       pal,
@@ -436,13 +397,11 @@ function backGrounds(pal: Palette): Parts {
       pal.path,
     ),
     P(rect(-14.6, -1.6, -19.45, -19.25, 0.011), pal.path),
-    // S1, S2: two courts on a hedge-green surround, with nets.
     P(rect(0.2, 4.9, -21.1, -18.0, 0.01), pal.hedge),
     ...courts.flatMap(({ x0, x1 }) => [
       P(rect(x0, x1, -20.8, -18.3, 0.012), pal.court),
       P(rect(x0, x1, -19.57, -19.53, 0.013), pal.plaza),
     ]),
-    // S3-S7: running track, striped pitch, sand at the near end, two lane lines.
     fan(pal, trackCentre, loop(2.1), 0.01, pal.track),
     fan(pal, trackCentre, loop(1.45), 0.011, pal.foliage),
     ...[1, 3, 5].map((k) =>
@@ -450,17 +409,14 @@ function backGrounds(pal: Palette): Parts {
     ),
     fan(pal, { x: track.xc, z: track.za }, sand, 0.013, pal.sand),
     ...[1.88, 1.66].flatMap(laneLine),
-    // S8: open-air stage, three solid half-ring tiers stepping up from the ground, on the +x side.
     ...stage.map(({ r0, r1, y, color }) =>
       P(arcSlab(r0, r1, 0, PI, 0, y, { x: 9.4, z: -12.25 }), color),
     ),
   ];
 }
 
-/** Back buildings fade 15% towards white after shading (v0.3 §5.2). */
 const HAZE = 0.15;
 
-/** Annex A and its glass bridges, building G, H, the domed hall B, chiller, carports, stand (§6.4). */
 function backCampus(pal: Palette): Parts {
   const P = paint(pal, 4);
   const { wall, trim, roof, accent } = pal.lm;
@@ -475,9 +431,7 @@ function backCampus(pal: Palette): Parts {
     new Shape([new Vector2(5.3, 1.56), new Vector2(7.9, 1.56), new Vector2(6.6, 2.0)]),
     { depth: 0.72, bevelEnabled: false },
   ).translate(0, 0, -13.6);
-  /** Carport roof height: 0.36 at its middle, tilted 0.043 rad so the west end is higher. */
   const carportY = (x: number) => 0.36 - Math.tan(0.043) * (x + 13.1);
-  /** Building H's bays on all four walls (D19). */
   const hallBays = [
     ...range(6).flatMap((k) => [
       ["+z", -13.3, -14.1 + 0.7 * k] as const,
@@ -494,7 +448,6 @@ function backCampus(pal: Palette): Parts {
     { x0: 14.56, y1: 0.75 },
   ];
   return [
-    // A1, A2: annex A with a paved roof and two lawn beds; two glass bridges to building G.
     P(box(-3.8, 3.8, 0, 1.3, -11.8, -10.15), wall, ha),
     P(box(-3.86, 3.86, 1.3, 1.36, -11.86, -10.1), trim, h),
     P(rect(-3.7, 3.7, -11.75, -10.2, 1.362), pal.sand, h),
@@ -503,12 +456,10 @@ function backCampus(pal: Palette): Parts {
       P(box(x - 0.27, x + 0.27, 1.36, 1.66, -13.1, -9.95), pal.water),
       P(box(x - 0.3, x + 0.3, 1.66, 1.7, -13.1, -9.95), trim, h),
     ]),
-    // Annex A had no window on any wall: from behind it read as a white box (D17).
     ...range(12).map((k) => P(quad("-z", -11.8, -3.3 + 0.6 * k, 0.7, 0.26, 0.32), g, h)),
     ...grid(SIDES, [-11.4, -10.55], (s, z) =>
       P(quad(s > 0 ? "+x" : "-x", s * 3.8, z, 0.7, 0.26, 0.32), g, h),
     ),
-    // GS1-GS4: building G with a solar roof and a skylight box.
     P(box(-2.6, 2.6, 0, 1.8, -16.6, -13.1), wall, ha),
     P(box(-2.66, 2.66, 1.8, 1.86, -16.66, -13.04), trim, h),
     P(rect(-2.55, 2.55, -16.55, -13.15, 1.862), roof, h),
@@ -520,7 +471,6 @@ function backCampus(pal: Palette): Parts {
       }),
     ]),
     P(box(-0.4, 0.4, 1.86, 2.14, -15.8, -13.9), roof, h),
-    // Windows on all four walls (D18).
     ...SIDES.flatMap((s) => [
       ...grid([0.45, 1.05, 1.5], range(9), (y, k) =>
         P(quad(s > 0 ? "+z" : "-z", s > 0 ? -13.1 : -16.6, -2.2 + 0.55 * k, y, 0.26, 0.32), g, h),
@@ -529,7 +479,6 @@ function backCampus(pal: Palette): Parts {
         P(quad(s > 0 ? "+x" : "-x", s * 2.6, -16.1 + 0.65 * k, y, 0.26, 0.32), g, h),
       ),
     ]),
-    // H1, H2: building H, ten bays of a tall arched window over a short one.
     P(box(-14.5, -10.3, 0, 1.5, -16.0, -13.3), wall, ha),
     P(box(-14.56, -10.24, 1.5, 1.57, -16.06, -13.24), trim, h),
     P(rect(-14.45, -10.35, -15.95, -13.35, 1.572), roof, h),
@@ -538,7 +487,6 @@ function backCampus(pal: Palette): Parts {
       P(quad(face, plane, u, 1.0, 0.26, 0.5), g, h),
       P(arch(face, plane, u, 1.25, 0.13), g, h),
     ]),
-    // B1-B8: domed hall with a barrel vault, a six-column gold-banded portico and a pediment.
     P(box(4.2, 9.0, 0, 1.5, -17.6, -13.6), wall, ha),
     P(box(4.14, 9.06, 1.5, 1.58, -17.66, -13.54), trim, h),
     P(vault, pal.vault, h),
@@ -558,7 +506,6 @@ function backCampus(pal: Palette): Parts {
       P(box(x - 0.3, x + 0.3, 1.95, 2.25, -13.68, -13.22), wall, h),
       P(box(x - 0.46, x + 0.46, 1.95, 2.0, -13.84, -13.06), trim, h),
     ]),
-    // Arched windows east, west and at the back (D20); the portico is the front.
     ...[
       ...range(5).flatMap((k) => [
         ["+x", 9.0, -17.0 + 0.72 * k] as const,
@@ -569,12 +516,10 @@ function backCampus(pal: Palette): Parts {
       P(quad(face, plane, u, 0.62, 0.3, 0.55), g, h),
       P(arch(face, plane, u, 0.9, 0.15), g, h),
     ]),
-    // C1: chiller plant with six fans.
     P(box(-6.9, -4.0, 0, 0.62, -18.6, -17.0), trim, h),
     ...grid([-6.35, -5.45, -4.55], [-18.2, -17.4], (x, z) =>
       P(circle(0.24, 8, x, 0.625, z), pal.band),
     ),
-    // C2: two rows of solar carports; posts stop just under the tilted roof.
     ...[-11.95, -12.65].flatMap((z) => [
       P(
         new PlaneGeometry(2.8, 0.6)
@@ -585,32 +530,24 @@ function backCampus(pal: Palette): Parts {
       ),
       ...[-14.2, -12.0].map((x) => P(cyl(0.03, 0.03, 4, 0, carportY(x) - 0.005, x, z), pal.dark)),
     ]),
-    // S9: three-step stand with a solar canopy on three posts.
     ...steps.map(({ x0, y1 }) => P(box(x0, 14.75, 0, y1, -18.0, -14.2), trim, h)),
     P(box(14.1, 14.8, 1.1, 1.16, -18.1, -14.1), pal.solar),
     ...[-17.9, -16.1, -14.3].map((z) => P(cyl(0.03, 0.03, 4, 0.75, 1.1, 14.7, z), wall)),
   ];
 }
 
-// --- Sun shadow overlay (N8, 2026-10-08) -----------------------------------------------------
-
-/** A convex block that casts a shadow, as 3D points (its corners, or a roof's apex). */
 export type Caster = readonly Vector3[];
 
-/** Box from the ground up to `top`: the shadow of its lower part hides under the building. */
 function block(x0: number, x1: number, z0: number, z1: number, top: number): Caster {
   return grid([x0, x1], [z0, z1], (x, z) => [new Vector3(x, 0, z), new Vector3(x, top, z)]).flat();
 }
 
-/** Main building, the three zone buildings and the back of campus; their shapes never change. */
 const CASTERS: readonly Caster[] = [
   block(-9.7, 9.7, -9.7, -6.2, 2.5),
   block(-3.06, 3.06, -9.9, -5.24, 3.02),
   ...[-9.05, -3.7, 3.7, 9.05].map((c) => block(c - 0.7, c + 0.7, -7.4, -6.0, 3.48)),
   block(-12.3, -8.85, -5.9, -0.7, 2.1),
   block(9.0, 11.8, -3.8, -1.2, 1.53),
-  // Back to z −6.0 (the tower stops at −5.88): closes the 0.2 sliver of sun between it and the
-  // east pavilion, which read as a rendering crack at dusk.
   block(9.6, 11.6, -6.0, -3.8, 3.57),
   block(9.8, 11.4, -5.6, -4.0, 4.25),
   block(10.05, 11.15, -5.35, -4.25, 4.82),
@@ -627,7 +564,6 @@ const CASTERS: readonly Caster[] = [
   block(14.2, 14.75, -18.0, -14.2, 1.16),
 ];
 
-/** The tower of each landmark archetype: tiers, lantern and needle; or the hip roof and clock. */
 const TOWER: Record<LandmarkArchetype, readonly Caster[]> = {
   "spire-hall": [
     block(-1.95, 1.95, -9.1, -6.1, 3.96),
@@ -649,12 +585,10 @@ const TOWER: Record<LandmarkArchetype, readonly Caster[]> = {
   ],
 };
 
-/** A box hanging from `y0` to `y1`: its shadow leaves the light through the opening below. */
 function lintel(x0: number, x1: number, z0: number, z1: number, y0: number, y1: number): Caster {
   return grid([x0, x1], [z0, z1], (x, z) => [new Vector3(x, y0, z), new Vector3(x, y1, z)]).flat();
 }
 
-/** The front gate (QA r2): the arch gate's solid middle, attic and wings; or the pier gateway. */
 const GATES = {
   arch: [
     block(-1.82, 1.82, GATE.back, 12.5, 2.8),
@@ -671,7 +605,6 @@ const GATES = {
 
 const cross = (o: Vec2, a: Vec2, b: Vec2) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
 
-/** Convex hull, counter-clockwise (Andrew's monotone chain). */
 function hull(points: readonly Vec2[]): Vec2[] {
   const sorted = [...points].sort((a, b) => a.x - b.x || a.z - b.z);
   const half = (list: Vec2[]) => {
@@ -688,7 +621,6 @@ function hull(points: readonly Vec2[]): Vec2[] {
   return [...half(sorted), ...half(sorted.reverse())];
 }
 
-/** Clips a convex polygon to the base (Sutherland-Hodgman), so no shadow hangs off the edge. */
 function clipToBase(polygon: Vec2[]): Vec2[] {
   const edges = [
     { axis: "x", limit: BASE.minX, keep: 1 },
@@ -713,14 +645,12 @@ function clipToBase(polygon: Vec2[]): Vec2[] {
   return out;
 }
 
-/** Every building block that casts a sun shadow for this landmark (trees come on top). */
 export const shadowCasters = (archetype: LandmarkArchetype, colonnades: boolean): Caster[] => [
   ...CASTERS,
   ...TOWER[archetype],
   ...GATES[colonnades ? "arch" : "pier"],
 ];
 
-/** Every tree's crown, placed as the instanced meshes place it (QA r2). */
 function crownCasters(): Caster[] {
   const crowns = { round: roundCrown(), cypress: cypressCrown() };
   const casters = TREE_INSTANCES.map((tree) => {
@@ -734,10 +664,6 @@ function crownCasters(): Caster[] {
   return casters;
 }
 
-/**
- * The bulky CC0 props' casters (dressing.ts `shade`): a box, or an octagon for a crown or canopy.
- * Static like the trees': if props.json fails, the shade stays, like the collision boxes.
- */
 function propCasters(): Caster[] {
   return DRESSING.flatMap(({ shade, at }) =>
     shade
@@ -756,12 +682,6 @@ function propCasters(): Caster[] {
   );
 }
 
-/**
- * Trees whose crown centre a building hides from the sun (QA r3). Lambert trees take no shadow,
- * so CampusScene multiplies these by `pal.shadow`, the factor the ground under them gets. A
- * point at height h is in a caster's shadow when it lies inside the caster's part above h, cast
- * along the sun onto the plane y = h. Another tree's crown never darkens a tree.
- */
 export function treesInShade(
   pal: Palette,
   archetype: LandmarkArchetype,
@@ -772,7 +692,6 @@ export function treesInShade(
   const casters = shadowCasters(archetype, colonnades);
   return new Set(
     TREE_INSTANCES.filter((tree) => {
-      // The round crown's middle, the cypress's widest part.
       const h = (tree.kind === "round" ? 1.55 : 0.6) * tree.scaleY;
       return casters.some((caster) => {
         if (!caster.some((p) => p.y > h)) return false;
@@ -788,23 +707,14 @@ export function treesInShade(
   );
 }
 
-/** Shadow overlay height: 0.0005 over the highest ground layer (sand, lane lines, 0.0135). */
 export const SHADOW_Y = 0.014;
 
-/**
- * Every caster's shadow (buildings, gate, tree crowns, bulky props) cast along the sun onto the ground (hull
- * of the projected points, clipped to the base), one colour: the multiply factor `pal.shadow`.
- * CampusScene draws it over all ground layers with multiply blending, so grass, paths, plaza and
- * lake all darken, and with a stencil test, so ground under two overlapping shadow polygons
- * darkens once. One draw call.
- */
 export function buildShadows(
   pal: Palette,
   archetype: LandmarkArchetype,
   colonnades: boolean,
 ): BufferGeometry {
   const { sun } = pal.light;
-  // Overcast: no sun, no shadow (the empty geometry draws nothing).
   if (!pal.sunShade) return groundTriangles([], SHADOW_Y);
   const onGround = (p: Vector3): Vec2 => ({
     x: p.x - (sun.x / sun.y) * p.y,
@@ -824,14 +734,9 @@ export function buildShadows(
   return groundTriangles(vertices, SHADOW_Y);
 }
 
-/** Height of the speakers' ground discs: over every path layer, under the shadow overlay. */
 export const SPEAKER_DISC_Y = 0.0135;
 export const SPEAKER_DISC_SEGMENTS = 16;
 
-/**
- * A baked disc under each person (floor × 0.8), in place of a blob mesh. After
- * dark it is a pool of warm light 2.2 times as wide, the person standing in it (§1.4).
- */
 function speakerDiscs(pal: Palette): Parts {
   const pool = pal.darkness >= 0.5;
   const top = shade(new Vector3(0, 1, 0), pal.light);
@@ -856,10 +761,8 @@ function speakerDiscs(pal: Palette): Parts {
   });
 }
 
-/** Every campus lamp: the plaza and the lanes, the hedge arcs without colonnades, the props'. */
 export function lampSpots(colonnades: boolean): Vec2[] {
   return [
-    // East lane to the back (v0.3 E3).
     { x: 13.4, z: -3.0 },
     { x: 13.4, z: -7.0 },
     ...SIDES.flatMap((s) => [
@@ -867,26 +770,21 @@ export function lampSpots(colonnades: boolean): Vec2[] {
       arcPoint(s * 0.3 * PI, 4.6),
       arcPoint(s * 0.75 * PI, 4.6),
     ]),
-    // Without colonnades the hedge arcs get lamps instead.
     ...(colonnades ? [] : SIDES.flatMap((s) => [0.37, 0.66].map((k) => arcPoint(s * k * PI, 3.4)))),
     ...DRESSING_LAMPS,
   ];
 }
 
-/** Life-size statues on the lawn walks and by the forecourt. */
 export const STATUES: readonly Vec2[] = [
   ...grid([-3.05, 3.05], [-1.35, -0.45, 0.45, 1.35], (x, z) => ({ x, z })),
   ...grid([-3.3, 3.3], [-2.05, -5.5], (x, z) => ({ x, z })),
 ];
 
-/** Mowing stripes (art §5.1 T12): dark strips this wide, one every two widths along z. */
 export const MOW_WIDTH = 1.4;
 export const MOW_Y = 0.003;
 const MOW_STRIPS = 12;
 
-/** The slab's bands, top down: turf lip, topsoil, subsoil (art §5.1 T1). */
 export const STRATA = [0, -0.06, -0.32, -0.6] as const;
-/** Water in the slab's cut side under the lake, this deep. */
 export const LAKE_SECTION = 0.18;
 
 export function buildTerrain(pal: Palette, colonnades: boolean): BufferGeometry {
@@ -928,7 +826,6 @@ export function buildTerrain(pal: Palette, colonnades: boolean): BufferGeometry 
     ...balustrades(pal),
     ...STATUES.flatMap(({ x, z }) => statue(x, z, pal)),
     ...lampSpots(colonnades).flatMap((spot) => lamp(spot, pal)),
-    // Clipped bushes at the foot of the colonnades.
     ...SIDES.flatMap((s) =>
       [0.42, 0.52, 0.62].map((k) => {
         const { x, z } = arcPoint(s * k * PI, 4.2);
@@ -941,14 +838,7 @@ export function buildTerrain(pal: Palette, colonnades: boolean): BufferGeometry 
   ]);
 }
 
-// --- Contact darkening overlay (art §2.4, 2026-10-09) ---------------------------------------
-
-/**
- * Over every ground layer (the highest, 0.013) and under the speakers' discs (0.0135), so a
- * night pool of light is never darkened; the sun shade (0.014) multiplies over both.
- */
 export const AO_Y = 0.0133;
-/** How far the soft frame round a building's footprint reaches. */
 export const AO_FRAME = 0.45;
 const WHITE = new Color(1, 1, 1);
 interface AoVertex {
@@ -957,7 +847,6 @@ interface AoVertex {
   color: Color;
 }
 
-/** Soft frame round a footprint: `~ao` along the walls, white (no change) `AO_FRAME` out. */
 function aoFrame(f: Box, ao: Color): AoVertex[] {
   const w = AO_FRAME;
   const corners = [
@@ -976,7 +865,6 @@ function aoFrame(f: Box, ao: Color): AoVertex[] {
   });
 }
 
-/** Elliptic blob: `~ao` at the centre, white on the rim. */
 function aoBlob(ao: Color, x: number, z: number, rx: number, rz: number, segments: number) {
   const rim = (k: number): AoVertex => {
     const a = (k / segments) * 2 * PI;
@@ -985,20 +873,13 @@ function aoBlob(ao: Color, x: number, z: number, rx: number, rz: number, segment
   return range(segments).flatMap((i) => [{ x, z, color: ao }, rim(i), rim(i + 1)]);
 }
 
-/** Blob size of a prop copy: its shade or blocking box, else a guess from its scale. */
 function propReach(row: (typeof DRESSING)[number]): [number, number] {
   const s = typeof row.scale === "number" ? row.scale : row.scale[0];
-  // A crown or canopy darkens about its own width, like a tree; a box reaches past its corners.
   if (row.shade?.round) return [...row.shade.half];
   const [hx, hz] = row.shade?.half ?? row.block ?? [0.16 * s, 0.16 * s];
   return [1.5 * hx, 1.5 * hz];
 }
 
-/**
- * Contact darkening, multiplied over the ground like the sun shade (one draw call, the shadow
- * material without its stencil): a soft frame round every building, a blob under every tree,
- * standing prop, lamp and life-size statue. Factors, not baked light: `~ao` fading to white.
- */
 export function buildAo(pal: Palette, colonnades: boolean): BufferGeometry {
   const { ao } = pal;
   const footprints = [
@@ -1026,9 +907,6 @@ export function buildAo(pal: Palette, colonnades: boolean): BufferGeometry {
   return groundTriangles(vertices, AO_Y);
 }
 
-// --- Landmark: shared U-shaped main building, tower archetype, colonnades (G-landmark) -------
-
-/** Base, porch floor and steps; the stepped tower base; two wings; four pavilions (§5.2). */
 function mainBuilding(pal: Palette): Parts {
   const P = paint(pal, 1);
   const { wall, trim, roof } = pal.lm;
@@ -1045,7 +923,6 @@ function mainBuilding(pal: Palette): Parts {
     P(box(-1.7, 1.7, 0, 0.3, -5.15, -4.15), trim, ao),
     P(box(-1.7, 1.7, 0, 0.2, -4.15, -3.85), trim),
     P(box(-1.7, 1.7, 0, 0.1, -3.85, -3.55), trim),
-    // Tower base: four storeys, corner piers stepping forward.
     P(box(-3.0, 3.0, 0.3, 2.9, -9.9, -5.3), wall, ao),
     P(box(-3.06, -2.5, 0.3, 2.9, -5.3, -5.24), wall),
     P(box(2.5, 3.06, 0.3, 2.9, -5.3, -5.24), wall),
@@ -1053,8 +930,6 @@ function mainBuilding(pal: Palette): Parts {
     ...baseWindows.map(({ x, y }) =>
       P(quad("+z", Math.abs(x) >= 2.5 ? -5.24 : -5.3, x, y, 0.2, 0.36), g),
     ),
-    // The strip over each wing roof (D3: west too), and the back above annex A, which hides it
-    // up to y 1.36 (D3).
     ...SIDES.flatMap((s) =>
       range(6).map((k) =>
         P(quad(s > 0 ? "+x" : "-x", s * 3.0, -9.6 + 0.4 * k, 2.57, 0.2, 0.36), g),
@@ -1073,7 +948,6 @@ function mainBuilding(pal: Palette): Parts {
       P(box(x0 - 0.05, x1 + 0.05, 2.25, 2.37, -9.75, -6.15), trim),
       P(rect(x0 + 0.12, x1 - 0.12, -9.63, -6.27, 2.372), roof),
       P(box(x0 - 0.05, x1 + 0.05, 2.37, 2.5, -6.27, -6.15), wall),
-      // Front and back alike (D1): string courses and nine bays.
       ...[0.92, 1.57].flatMap((y) => [
         P(box(x0, x1, y, y + 0.04, -6.2, -6.16), trim),
         P(box(x0, x1, y, y + 0.04, -9.74, -9.7), trim),
@@ -1092,7 +966,6 @@ function mainBuilding(pal: Palette): Parts {
           P(arch(face, plane, x, 0.72, 0.08), g),
         ]);
       }),
-      // The gable end of each wing: east, and west (D2).
       ...grid(range(5), [0.62, 1.27, 1.92], (i, y) =>
         P(quad(s > 0 ? "+x" : "-x", s * 9.7, -9.4 + 0.42 * i, y, 0.16, 0.4), g),
       ),
@@ -1106,7 +979,6 @@ function mainBuilding(pal: Palette): Parts {
       P(box(c - 0.5, c + 0.5, 3.03, 3.13, -7.2, -6.2), wall),
       P(box(c - 0.26, c + 0.26, 3.13, 3.42, -6.96, -6.44), wall),
       P(box(c - 0.31, c + 0.31, 3.42, 3.48, -7.01, -6.39), trim),
-      // The kiosk's window on all four sides (D6).
       ...(
         [
           ["+z", -6.44, c],
@@ -1119,9 +991,7 @@ function mainBuilding(pal: Palette): Parts {
         P(arch(face, plane, u, 3.35, 0.07), g),
       ]),
       ...grid([c - 0.28, c + 0.28], floors, (x, y) => P(quad("+z", -6.0, x, y, 0.18, 0.38), g)),
-      // The back shows only above the wing roof (D5).
       ...[c - 0.28, c + 0.28].map((x) => P(quad("-z", -7.4, x, 2.61, 0.18, 0.38), g)),
-      // The outer side: east on the east wing, west on the west wing (D4).
       ...grid([-7.0, -6.4], floors, (z, y) =>
         P(quad(c > 0 ? "+x" : "-x", c + Math.sign(c) * 0.7, z, y, 0.18, 0.38), g),
       ),
@@ -1130,7 +1000,6 @@ function mainBuilding(pal: Palette): Parts {
   return parts;
 }
 
-/** Stepped tower with a lantern, cup, needle spire and sun star (§5.3). */
 function spireHall(pal: Palette): Parts {
   const P = paint(pal, 2);
   const { wall, trim, accent } = pal.lm;
@@ -1141,10 +1010,7 @@ function spireHall(pal: Palette): Parts {
     return { x: 0.44 * Math.cos(a), z: cz + 0.44 * Math.sin(a) };
   });
   return [
-    // Porch: four columns, wider middle bay.
     ...[-1.4, -0.6, 0.6, 1.4].map((x) => P(cyl(0.09, 0.1, 8, 0.3, 1.3, x, -4.4), wall)),
-    // Parterre round the tower base roof, front and back, east and west (v0.3 §6.3, D8), and a
-    // lawn on wing E.
     ...[
       [-3.0, -1.9],
       [-1.6, -0.45],
@@ -1161,7 +1027,6 @@ function spireHall(pal: Palette): Parts {
       P(rect(2.05, 3.0, z0, z1, 3.024), pal.ground),
       P(rect(-3.0, -2.05, z0, z1, 3.024), pal.ground),
     ]),
-    // Half rose beds on the middle of each strip, curving in from the roof edge.
     ...[
       { x: 0, z: -5.3, from: 0 },
       { x: 3.0, z: -7.6, from: PI / 2 },
@@ -1176,7 +1041,6 @@ function spireHall(pal: Palette): Parts {
     ].map(([x0 = 0, x1 = 0]) => P(rect(x0, x1, -9.35, -6.5, 2.374), pal.ground)),
     P(box(-1.65, 1.65, 1.3, 1.46, -5.3, -4.22), trim),
     P(quad("+z", -5.3, 0, 0.75, 1.0, 0.9), g),
-    // Tier 2; tiers 2 to 4 have windows on all four sides (D7).
     P(box(-1.95, 1.95, 3.02, 3.8, -9.1, -6.1), wall),
     P(box(-2.03, 2.03, 3.8, 3.96, -9.18, -6.02), trim),
     ...SIDES.flatMap((s) => [
@@ -1187,7 +1051,6 @@ function spireHall(pal: Palette): Parts {
         P(quad(s > 0 ? "+x" : "-x", s * 1.95, -8.8 + 0.4 * k, 3.41, 0.2, 0.4), g),
       ),
     ]),
-    // Tier 3, roof garden and corner kiosks.
     P(box(-1.83, 1.83, 3.96, 4.9, -9.0, -6.2), wall),
     P(box(-1.9, 1.9, 4.9, 5.0, -9.07, -6.13), trim),
     ...SIDES.flatMap((s) => [
@@ -1204,7 +1067,6 @@ function spireHall(pal: Palette): Parts {
       P(box(kx - 0.17, kx + 0.17, 5.0, 5.42, kz - 0.17, kz + 0.17), wall),
       P(cone(0.26, 4, 5.42, 5.6, kx, kz, true), trim),
     ]).flat(),
-    // Tier 4 with tall arched openings.
     P(box(-0.81, 0.81, 5.0, 6.2, -8.41, -6.79), wall),
     ...(
       [
@@ -1218,7 +1080,6 @@ function spireHall(pal: Palette): Parts {
       P(arch(face, plane, u, 5.81, 0.17), g),
     ]),
     P(box(-0.88, 0.88, 6.2, 6.28, -8.48, -6.72), trim),
-    // Lantern, cup, needle and star.
     P(cyl(0.56, 0.82, 8, 6.28, 6.55, 0, cz), wall),
     P(cyl(0.4, 0.4, 8, 6.55, 7.55, 0, cz), g),
     ...posts.map(({ x, z }) => P(box(x - 0.06, x + 0.06, 6.55, 7.55, z - 0.06, z + 0.06), wall)),
@@ -1240,7 +1101,6 @@ function spireHall(pal: Palette): Parts {
   ];
 }
 
-/** Clock hand pointing `angle` radians clockwise from 12, on a clock face centred at (u, v). */
 function hand(
   face: Face,
   plane: number,
@@ -1251,11 +1111,9 @@ function hand(
   angle: number,
 ) {
   const geometry = new PlaneGeometry(width, length).translate(0, length / 2, 0).rotateZ(-angle);
-  // One more 0.01 out than the dial, on whichever side of the wall "out" is.
   return onFace(geometry, face, plane + outward(face), u, v);
 }
 
-/** Town hall: hip roof on the shared tower base and a clock tower in front (§5.4). */
 function clockTower(pal: Palette): Parts {
   const P = paint(pal, 3);
   const { wall, trim, roof, accent } = pal.lm;
@@ -1266,7 +1124,6 @@ function clockTower(pal: Palette): Parts {
     .scale(3.12 * Math.SQRT2, 1, 2.42 * Math.SQRT2)
     .translate(0, 3.02 + 0.64, -7.6);
   const v = 5.31;
-  // A dial on every side of the clock box (D9); each still reads 4:30 (orbit-camera §5.3).
   const faces = [
     ["+z", -4.9, 0],
     ["+x", 0.75, -5.65],
@@ -1300,7 +1157,6 @@ function clockTower(pal: Palette): Parts {
   ];
 }
 
-/** Two curved double colonnades around the plaza, each closed by a square pier (§5.5). */
 function colonnade(pal: Palette): Parts {
   const P = paint(pal);
   const { wall, trim } = pal.lm;
@@ -1332,13 +1188,11 @@ function colonnade(pal: Palette): Parts {
   ];
 }
 
-/** Low hedge arcs in place of the colonnades; walkable, being under 0.4 high. */
 function hedgeArcs(pal: Palette): Parts {
   const P = paint(pal);
   return SIDES.map((s) => P(arcSlab(3.25, 3.55, s * 0.36 * PI, s * 0.68 * PI, 0, 0.3), pal.hedge));
 }
 
-/** Three-arch gate with paired columns and plain gold bands, and a stone-and-iron fence (§6.2). */
 function archGate(pal: Palette): Parts {
   const P = paint(pal);
   const { wall, trim, accent } = pal.lm;
@@ -1363,8 +1217,6 @@ function archGate(pal: Palette): Parts {
     P(arch("+z", fz, 0, 1.26, 0.645), iron),
     P(quad("+z", fz, 0, 2.1, 3.08, 0.08), accent),
     P(box(-0.14, 0.14, 1.93, 2.2, fz, fz + 0.05), accent),
-    // The arches and the gold band seen from the campus side (D10): from 135° to 225° the gate
-    // read as a solid wall.
     P(quad("-z", 11.5, 0, 0.63, 1.29, 1.26), iron),
     P(arch("-z", 11.5, 0, 1.26, 0.645), iron),
     P(quad("-z", 11.5, 0, 2.1, 3.08, 0.08), accent),
@@ -1394,7 +1246,6 @@ function archGate(pal: Palette): Parts {
   ];
 }
 
-/** Town gateway: two open piers under a roof-coloured lintel, and a clipped hedge fence (§6.2). */
 function pierGate(pal: Palette): Parts {
   const P = paint(pal);
   const { wall, trim, roof } = pal.lm;
@@ -1422,9 +1273,6 @@ export function buildLandmark(pal: Palette, archetype: LandmarkArchetype, colonn
   ]);
 }
 
-// --- Zone buildings (G-library, G-watchtower, G-market) --------------------------------------
-
-/** Building colours for a look: "coming soon" desaturates everything in the group. */
 function siteColours(pal: Palette, own: BuildingPalette, look: SiteLook) {
   const tone = (c: Color) => (look === "coming_soon" ? desaturate(c) : c);
   return {
@@ -1437,27 +1285,16 @@ function siteColours(pal: Palette, own: BuildingPalette, look: SiteLook) {
     hedge: tone(pal.hedge),
     ground: tone(pal.ground),
     foliage: tone(pal.foliage),
-    /** Lit for a starred zone (N9); otherwise glass like every other window. */
     window: look === "lit" ? pal.lit : tone(pal.glass),
     goods: [tone(pal.player), tone(pal.npc), tone(pal.lm.accent)] as const,
   };
 }
 
-/**
- * Two lit lamps flanking an open zone's door (QA r2, 2026-10-08): the welcome the camera always
- * sees, since the watchtower and market doors face away from it (art §1.2 rule 7).
- */
 function entranceLamps(pal: Palette, id: ZoneLocation, look: SiteLook): Parts {
   if (look === "coming_soon") return [];
   return entranceLampSpots(id).flatMap((spot) => lamp(spot, pal));
 }
 
-/**
- * Where the two entrance lamps of a zone stand: 0.6 either side of its walk, `out` along it from
- * the door. The library's door faces the camera, so its lamps stand 2.8 out, past the librarian:
- * at 0 the near lamp stood against the lit door on screen and the far one behind the "!" badge
- * (QA r3). The other doors face away from the camera.
- */
 export function entranceLampSpots(id: ZoneLocation): Vec2[] {
   const { door, facing } = siteFor(id);
   const out = id === "library" ? 2.8 : 0;
@@ -1467,16 +1304,11 @@ export function entranceLampSpots(id: ZoneLocation): Vec2[] {
   }));
 }
 
-/** The library's front and back walls, which carry the tall windows. */
 const TALL_FACES = [
   ["+z", -0.8],
   ["-z", -5.8],
 ] as const;
 
-/**
- * Two-storey hall: gold-banded portico, arched windows, roof garden (§5.6). Open: the door is
- * lit. Lit (a level has a star, N9): the windows light up and show the shelves of books.
- */
 export function buildLibrary(pal: Palette, look: SiteLook) {
   const P = paint(pal);
   const c = siteColours(pal, pal.lib, look);
@@ -1501,7 +1333,6 @@ export function buildLibrary(pal: Palette, look: SiteLook) {
     P(quad("+x", -9.4, -2.8, 0.7, 0.6, 0.9), door, { emissive: open }),
     P(arch("+x", -9.4, -2.8, 1.15, 0.3), door, { emissive: open }),
     P(box(-9.4, -8.6, 1.42, 1.48, -3.4, -2.2), c.roof),
-    // East bays beside the door; the west wall has a bay where the door would be (D11).
     ...[
       ...[-4.8, -4.0, -1.6].map((z) => ["+x", -9.4, z] as const),
       ...[-4.8, -4.0, -2.8, -1.6].map((z) => ["-x", -12.2, z] as const),
@@ -1510,7 +1341,6 @@ export function buildLibrary(pal: Palette, look: SiteLook) {
       P(quad(face, plane, z, 1.4, 0.3, 0.45), c.window, lit),
       P(arch(face, plane, z, 1.625, 0.15), c.window, lit),
     ]),
-    // Tall windows on the front and the back (D11).
     ...TALL_FACES.flatMap(([face, plane]) =>
       tall.flatMap((x) => [
         P(quad(face, plane, x, 0.95, 0.44, 1.25), c.window, lit),
@@ -1520,13 +1350,11 @@ export function buildLibrary(pal: Palette, look: SiteLook) {
     ...entranceLamps(pal, "library", look),
   ];
   if (look === "lit") {
-    // Coloured book spines behind each tall window, read as shelves through the glass.
     const spines = [pal.lib.roof, pal.lm.accent, pal.mk.roof, pal.wt.roof, pal.lib.trim];
     const rows = [
       { base: 0.42, heights: [0.5, 0.44, 0.55, 0.46, 0.52] },
       { base: 1.0, heights: [0.42, 0.46, 0.39, 0.48, 0.44] },
     ];
-    // Just past the glass (0.002 and 0.003), on whichever side of the wall is out.
     for (const [face, plane] of TALL_FACES) {
       for (const x of tall) {
         rows.forEach((row, r) => {
@@ -1542,8 +1370,6 @@ export function buildLibrary(pal: Palette, look: SiteLook) {
     }
   }
   if (!open) {
-    // Scaffolding on the front and, mirrored through the hall, the back (D12): every view but
-    // exactly 90 and 270 degrees then shows one (art §1.2 rule 4).
     for (const [p0, p1, b0, b1] of [
       [-0.715, -0.645, -0.75, -0.5],
       [-5.955, -5.885, -6.1, -5.85],
@@ -1559,7 +1385,6 @@ export function buildLibrary(pal: Palette, look: SiteLook) {
   return merge(parts);
 }
 
-/** A wing pavilion enlarged into a four-tier tower, with a lobby in front (§5.7). */
 export function buildWatchtower(pal: Palette, look: SiteLook) {
   const P = paint(pal);
   const c = siteColours(pal, pal.wt, look);
@@ -1578,7 +1403,6 @@ export function buildWatchtower(pal: Palette, look: SiteLook) {
     P(box(10.0, 11.2, 4.75, 4.82, -5.4, -4.2), c.trim),
     P(box(10.3, 10.9, 4.82, 5.5, -5.1, -4.5), c.wall),
     P(box(10.24, 10.96, 5.5, 5.58, -5.16, -4.44), c.trim),
-    // The lamp slot under the cap, on all four sides (D13).
     ...(
       [
         ["+z", -4.5, 10.6],
@@ -1593,7 +1417,6 @@ export function buildWatchtower(pal: Palette, look: SiteLook) {
     P(cone(0.42, 4, 5.58, 6.05, 10.6, -4.8, true), c.roof),
     P(ico(0.07, 0, 10.6, 6.12, -4.8), c.accent),
     ...grid([10.2, 11.0], [1.95, 2.75], (x, y) => P(quad("+z", -3.8, x, y, 0.2, 0.42), c.glass)),
-    // Tower windows on the east and, mirrored, the west and the back (D13).
     ...SIDES.flatMap((s) =>
       grid([-5.2, -4.4], [0.65, 1.45, 2.25, 3.05], (z, y) =>
         P(quad(s > 0 ? "+x" : "-x", s > 0 ? 11.6 : 9.6, z, y, 0.2, 0.42), c.glass),
@@ -1604,11 +1427,9 @@ export function buildWatchtower(pal: Palette, look: SiteLook) {
     ),
     ...[9.6, 10.4, 11.2].map((x) => P(quad("+z", -1.2, x, 0.75, 0.3, 0.5), c.glass)),
     ...[-3.2, -2.4, -1.6].map((z) => P(quad("+x", 11.8, z, 0.75, 0.3, 0.5), c.glass)),
-    // The real entrance faces the plaza (D13): lit while the zone is open, like the library's.
     P(quad("-x", 9.0, -2.8, 0.7, 0.6, 0.9), open ? pal.lit : c.glass, { emissive: open }),
     ...[-3.45, -2.15].map((z) => P(quad("-x", 9.0, z, 0.75, 0.3, 0.5), c.glass)),
     ...entranceLamps(pal, "watchtower", look),
-    // Scaffolding on the tower's front and, mirrored through it (z -4.8), its back (D14).
     ...(open
       ? []
       : (
@@ -1625,7 +1446,6 @@ export function buildWatchtower(pal: Palette, look: SiteLook) {
   ]);
 }
 
-/** Open market hall by the lake: white columns, flat roof, awnings, three stalls (§5.8). */
 export function buildMarket(pal: Palette, look: SiteLook) {
   const P = paint(pal);
   const c = siteColours(pal, pal.mk, look);
@@ -1647,7 +1467,6 @@ export function buildMarket(pal: Palette, look: SiteLook) {
     P(box(7.6, 10.4, 1.95, 2.35, 3.05, 4.75), c.wall),
     P(box(7.55, 10.45, 2.35, 2.42, 3.0, 4.8), c.trim),
     P(new PlaneGeometry(3.9, 0.646).rotateX(-PI / 2 + tilt).translate(9.0, 1.5, 5.55), c.roof),
-    // North awning, the south one turned round (D15): seen from behind, the fair keeps its red.
     P(new PlaneGeometry(3.9, 0.646).rotateX(-PI / 2 - tilt).translate(9.0, 1.5, 2.25), c.roof),
     P(
       new PlaneGeometry(0.646, 2.5)
@@ -1666,15 +1485,12 @@ export function buildMarket(pal: Palette, look: SiteLook) {
       }),
     ),
     ...entranceLamps(pal, "market", look),
-    // Lit (a level has a star, N9): lanterns under the outer edge of the south and east awnings.
     ...(look === "lit"
       ? [
           ...stalls.map((x) => box(x - 0.08, x + 0.08, 1.12, 1.28, 5.7, 5.86)),
           ...[3.3, 4.5].map((z) => box(11.55, 11.71, 1.12, 1.28, z - 0.08, z + 0.08)),
         ].map((lantern) => P(lantern, pal.lit, { emissive: true }))
       : []),
-    // Scaffolding on the east and, mirrored through the hall (x 9.0), across the west entrance
-    // (D16): "not open yet", though not an obstacle.
     ...(look !== "coming_soon"
       ? []
       : (
@@ -1689,11 +1505,8 @@ export function buildMarket(pal: Palette, look: SiteLook) {
   ]);
 }
 
-// --- Figures and trees (MeshLambertMaterial, vertex colours without baked light) -------------
-
 const L = (geometry: BufferGeometry, color: Color) => part(geometry, { color }, null);
 
-/** Player figure, origin at the feet, facing local +z. Height 1.27. */
 export function buildPlayer(pal: Palette) {
   return merge([
     L(cyl(0.15, 0.13, 8, 0, 0.42), pal.pants),
@@ -1703,7 +1516,6 @@ export function buildPlayer(pal: Palette) {
   ]);
 }
 
-/** Librarian: flared skirt, long cardigan, book held to the chest, hair bun, glasses. */
 export function buildLan(pal: Palette) {
   const book = box(-0.13, 0.13, -0.16, 0.16, -0.035, 0.035).rotateX(-0.26).translate(0, 0.86, 0.25);
   return merge([
@@ -1717,10 +1529,6 @@ export function buildLan(pal: Palette) {
   ]);
 }
 
-/**
- * The four hub NPCs as plain statues in one draw call, facing their rest yaw: shown until the
- * baked cast arrives, and kept if it fails. Outfits come from the theme (`campus.npcs`).
- */
 export function buildNpcs(pal: Palette, looks: CampusTheme["npcs"]) {
   return merge(
     NPCS.flatMap(({ id, spot, yaw }) => {
@@ -1737,7 +1545,6 @@ export function buildNpcs(pal: Palette, looks: CampusTheme["npcs"]) {
   );
 }
 
-/** Crowns of the two tree kinds; each also casts its tree's sun shadow. */
 function roundCrown() {
   return ico(0.8, 1, 0, 0, 0).scale(1, 0.85, 1).translate(0, 1.55, 0);
 }
@@ -1755,16 +1562,13 @@ function cypressCrown() {
   return lathe(profile, 8, 0, 0);
 }
 
-/** Broad crown, a little wider than tall (§5.9). */
 export function buildRoundTree(pal: Palette) {
   return merge([L(cyl(0.08, 0.12, 6, 0, 0.95), pal.trunk), L(roundCrown(), pal.foliage)]);
 }
 
-/** Slender cypress, about 3.4 times taller than wide and well below the wing cornice (§5.9). */
 export function buildCypress(pal: Palette) {
   return merge([L(cyl(0.04, 0.05, 5, 0, 0.12), pal.trunk), L(cypressCrown(), pal.cypress)]);
 }
 
-/** Segments of the always-present helpers drawn besides the built groups (art §3, §5.10). */
 export const BLOB_SEGMENTS = 20;
 export const RING_SEGMENTS = 40;

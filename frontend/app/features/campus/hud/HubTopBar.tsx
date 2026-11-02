@@ -17,20 +17,13 @@ import { WeatherChip } from "./WeatherChip";
 const PANEL_ID = "hub-zone-list";
 
 interface HubTopBarProps {
-  /** Undefined while loading. */
   zones: ZoneListResult | undefined;
   onTalk: (who: Speaker) => void;
   onRetry: () => void;
 }
 
-/**
- * Top HUD: back to the landing page, the "Các khu" list and the theme switch. The list is the
- * path through the hub that needs no canvas: talk to the librarian and the four NPCs, read
- * every zone card, enter open zones.
- */
 export function HubTopBar({ zones, onTalk, onRetry }: HubTopBarProps) {
   const [open, setOpen] = useState(false);
-  /** Where the player stood when the list opened: behind the main building or in front. */
   const [inBack, setInBack] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -43,7 +36,6 @@ export function HubTopBar({ zones, onTalk, onRetry }: HubTopBarProps) {
     if (!open) return;
     panelRef.current?.querySelector<HTMLElement>("button, a[href]")?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      // While the dialog is open, Esc belongs to the dialog.
       if (event.key !== "Escape" || hubStore.getState().dialog) return;
       setOpen(false);
       toggleRef.current?.focus();
@@ -62,7 +54,6 @@ export function HubTopBar({ zones, onTalk, onRetry }: HubTopBarProps) {
     };
   }, [open]);
 
-  // The notice unmounts on retry; keep focus in the panel so the movement keys stay inert.
   const retryKeepingFocus = () => {
     headingRef.current?.focus();
     onRetry();

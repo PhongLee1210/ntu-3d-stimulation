@@ -20,7 +20,6 @@ import {
 
 const deg = (d: number) => (d * Math.PI) / 180;
 const toDeg = (r: number) => (r * 180) / Math.PI;
-/** v0.3's screen bounds of the model at HOME_YAW (campus-scene v0.3 §4.1). */
 const V03_CONTENT = { minX: -19.73, maxX: 26.03, minY: -12.05, maxY: 14.82 };
 const YAWS = [0, 45, 135, 200, 315].map(deg);
 

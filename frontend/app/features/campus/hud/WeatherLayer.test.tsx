@@ -42,10 +42,6 @@ describe("WeatherLayer", () => {
   });
 });
 
-/*
- * The sky rules of app.css against every theme's tokens (weather-time-visuals §4.2): the focus
- * ring of the controls on the scene stays ≥ 3:1 (WCAG 1.4.11) on every sky it can sit on.
- */
 describe.each(
   parseThemeIndex(
     JSON.parse(readFileSync(path.resolve(process.cwd(), "public", "themes", "index.json"), "utf8")),
@@ -55,7 +51,6 @@ describe.each(
     path.resolve(process.cwd(), "public", "themes", id, "theme.css"),
     "utf8",
   );
-  // First declaration of each token; a literal pattern (semgrep forbids RegExp from a variable).
   const tokens = new Map<string, string>();
   for (const [, name = "", hex = ""] of css.matchAll(/--vg-([\w-]+):\s*(#[0-9a-f]{6})/gi)) {
     if (!tokens.has(name)) tokens.set(name, hex);
@@ -65,7 +60,6 @@ describe.each(
     if (!hex) throw new Error(`${id}: --vg-${name} missing`);
     return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   };
-  /** color-mix(in srgb, a p, b). */
   const mix = (a: number[], p: number, b: number[]) =>
     a.map((c, i) => c * p + (b[i] ?? 0) * (1 - p));
   const luminance = (rgb: number[]) => {

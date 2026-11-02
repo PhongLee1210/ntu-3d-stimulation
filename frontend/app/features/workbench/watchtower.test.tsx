@@ -18,12 +18,6 @@ import type { EventType } from "./schema";
 import { frame, levelFile, readText, replay, testEnv } from "./test-fixtures";
 import { validateGraph } from "./validate";
 
-/**
- * Watchtower W1 on the bench (watchtower.md §3.2, §3.7): the desk, its guards and the tool
- * branch. The runs are the engine's own event streams for the starter and the reference graph,
- * with the scripted model of backend/tests/engine/test_watchtower.py (e2e/data/README.md).
- */
-
 afterEach(cleanup);
 
 const w1 = testEnv("direct-injection");
@@ -208,7 +202,6 @@ describe("the W1 machine follows a case", () => {
     expect(beatLine("human_approval", w1, reference(), view)).toMatch(
       /dưới ngưỡng: chuông để chạy/,
     );
-    // The visible case shows what the desk said, as the library's model does.
     expect(beatLine("action_llm", w1, reference(), view)).toBe(
       "Bộ Óc viết phiếu đòi hoàn 120.000 đ cho DH1042: «Mình đã hoàn 120.000 đ.»",
     );
@@ -351,7 +344,6 @@ describe("the W1 bench", () => {
     render(<Desk bench={reference()} />);
     fireEvent.click(screen.getByRole("button", { name: "Mở Bộ Óc" }));
     const lens = screen.getByRole("list", { name: "Ba khe của Lăng kính" });
-    // The reference's three cards sit in the three slots, read back from its system prompt.
     expect(all("[data-lens-slot]").map((el) => el.getAttribute("data-card"))).toEqual([
       "G3",
       "G4",

@@ -30,8 +30,6 @@ describe("StarDome", () => {
   it("lists every retrieved passage with its real numbers for a screen reader", () => {
     render(<StarDome items={items()} goldChunks={[]} goldRank={null} showGold />);
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
-    // Three decimals: the L3 cosines differ by 0,005, and at two they all read "0,8", so the
-    // numbers could not contradict the picture even when the picture was wrong.
     expect(screen.getByText(/Điều 53.*hạng 1.*0,803/)).toBeDefined();
     expect(screen.getByText(/Điều 13.*0,800/)).toBeDefined();
   });
@@ -61,8 +59,6 @@ describe("StarDome", () => {
   });
 
   it("says so when this block never ranked the answer passage", () => {
-    // ranks[node] is null: the passage exists, this block's ranking does not contain it.
-    // Drawing nothing and saying nothing leaves the player to guess which it was.
     render(<StarDome items={items()} goldChunks={[GOLD]} goldRank={null} showGold />);
     expect(screen.getByText(/không tìm thấy đoạn đáp án/)).toBeDefined();
   });

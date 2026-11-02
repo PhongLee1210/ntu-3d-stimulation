@@ -69,7 +69,6 @@ import {
 import type { BlockType, CaseRole, Fact, Graph, Issue, JsonValue } from "./schema";
 import { fixFor } from "./validate";
 
-/** `*X*` in server messages becomes <strong>X</strong>; the rest stays plain text. */
 export function rich(text: string): ReactNode {
   return text
     .split(/\*([^*]+)\*/)
@@ -78,14 +77,8 @@ export function rich(text: string): ReactNode {
 
 export const slotId = (env: Env, type: BlockType) => `slot-${nodeIds(env.level)[type]}`;
 
-// Never an unchecked radio: one arrow key there would silently change the value.
 const CONTROL = ':is(input:not([type="radio"]), input:checked, select, button):not([disabled])';
 
-/**
- * Focus targets of §9, best first: the knob named by `param` (absent when the slot is detached
- * or the knob is fixed at this level), then the slot's first control (the attach switch of a
- * detached slot).
- */
 export function slotTargets(
   env: Env,
   type: BlockType,
@@ -93,7 +86,6 @@ export function slotTargets(
   phrase?: string | null,
 ): string[] {
   const slot = `#${slotId(env, type)}`;
-  // A chip of the net's tray: the phrase that blocked a customer, found by its text.
   const chip = phrase ? `${slot} [data-phrase="${phrase.replace(/["\\]/g, "\\$&")}"]` : null;
   return [
     ...(chip ? [chip] : []),
@@ -102,60 +94,43 @@ export function slotTargets(
   ];
 }
 
-/** Slots that can be focused from a diagnosis: shown, unlocked and with a control. */
 export function hasControls(env: Env, type: BlockType): boolean {
   if (!isAllowed(env.level, type) || isLocked(env.level, type)) return false;
   if (isOptional(type) || type === "llm" || type === "action_llm") return true;
   return paramNames(env.blocks, type).some((name) => domain(env, type, name)?.kind !== "fixed");
 }
 
-/** What a slot may say about the answer passage of the case being followed. */
 export interface SlotGold {
   chunks: readonly string[];
-  /** Node id -> rank of the best answer passage in that block's full ranking. */
   ranks: Readonly<Record<string, number | null>>;
-  /** ret.gold_missing, ret.gold_rank, ret.boundary_split, ctx.gold_dropped. */
   flags: readonly string[];
-  /** False for a hidden or trap case, whose gold the server withholds and the bench never draws. */
   visible: boolean;
 }
 
 export interface BenchRunView {
   run: RunView;
   followed: CaseView;
-  /** report.gold[followed] after run.finished, plus whether the case may show it. */
   gold: SlotGold | null;
 }
 
-/** Retrieved facts by node id, from the deterministic preview rather than from a run. */
 export type Preview = Readonly<Record<string, Extract<Fact, { kind: "retrieved" }>>>;
 
 interface BenchProps {
   env: Env;
   bench: Bench;
-  /** The graph the bench sends (for the next step of each error). */
   graph: Graph;
   onChange: (next: Bench) => void;
   locked: boolean;
   issues: readonly Issue[];
   highlight: BlockType | null;
   view: BenchRunView | null;
-  /** The bench against the run on show (N6 slot states). */
   benchRun: BenchRun;
-  /** What the bench would pull right now; drawn when no run step covers the slot. */
   preview: Preview | null;
-  /** N22: the static per-variant data, for the chunker's strip. Null when it did not load. */
   viz: VizData | null;
-  /** The sample case the strip follows, so it can pick the article the search favours. */
   vizCase: string | null;
   saved: boolean;
   discarded: boolean;
-  /** N17: the one-line note of each toy touched for the first time on this browser. */
   tips?: Partial<Record<BlockType, string>>;
-  /**
-   * Where the machine is drawn: an element above both page columns, so it spans the page. The
-   * bench keeps its state either way (a portal). Absent, the machine sits at the bench's head.
-   */
   machineHost?: HTMLElement | null;
 }
 
@@ -166,7 +141,6 @@ const EMPTY_TEXT: Readonly<Record<string, string>> = {
   rerank: "Không xếp hạng lại.",
 };
 
-/** Every slot in the order the question meets it. */
 const FLOW: readonly BlockType[] = [
   "input",
   "corpus",
@@ -185,7 +159,6 @@ const FLOW: readonly BlockType[] = [
   "output",
 ];
 
-/** A Watchtower desk: the action slip's model instead of the library's reader. */
 export const isDesk = (env: Env) => isAllowed(env.level, "action_llm");
 
 export function BenchSection(props: BenchProps) {
@@ -197,19 +170,14 @@ export function BenchSection(props: BenchProps) {
   const notOpened = (["vector_search", "bm25_search", "fusion", "rerank"] as const)
     .filter((type) => !desk && !allowed(type))
     .map((type) => TOY[type].name);
-  // One toy open at a time: the machine is the overview, the open slot its knobs and evidence.
-  // A level opens on the first toy it lets the player turn.
   const [picked, setPicked] = useState<BlockType | null>(
     () => props.highlight ?? FLOW.find((type) => allowed(type) && hasControls(env, type)) ?? null,
   );
-  // A hint or a diagnosis lights a slot to send the hand there: that slot opens, in the same
-  // render, so the page's focus request finds its knob already drawn.
   const [seen, setSeen] = useState(props.highlight);
   if (props.highlight !== seen) {
     setSeen(props.highlight);
     if (props.highlight) setPicked(props.highlight);
   }
-  // A toy pressed on the machine opens its slot, then takes the hand to its first control.
   const [focusTo, setFocusTo] = useState<{ type: BlockType; n: number } | null>(null);
   useEffect(() => {
     if (!focusTo) return;
@@ -269,7 +237,6 @@ export function BenchSection(props: BenchProps) {
           <span className="font-semibold">
             Đang theo dõi: câu #{view.followed.n} · {vaiVi(view.followed.vai)}
           </span>
-          {/* Below lg the case table sits under the whole bench. */}
           <a href="#wb-cases-title" className="text-brand underline underline-offset-4">
             Đổi câu ở bảng câu
           </a>
@@ -289,7 +256,6 @@ export function BenchSection(props: BenchProps) {
             {slot("injection_classifier")}
             <Connector label={flow("injection_classifier")} />
             {slot("action_llm")}
-            {/* The tool branch: what the slip asks for goes past the bell to the refund desk. */}
             <Connector label={DESK_VI.branch} />
             <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
               {slot("human_approval")}
@@ -365,11 +331,9 @@ function Connector({ label }: { label: string }) {
   );
 }
 
-/** A radio drawn as a chip: the span after a `peer sr-only` input. */
 export const CHIP =
   "flex h-11 min-w-11 items-center justify-center rounded-sm border border-fg-muted bg-surface px-3 text-sm peer-checked:border-brand peer-checked:bg-brand peer-checked:text-on-brand peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand peer-disabled:cursor-not-allowed peer-disabled:opacity-60";
 
-/** Each N6 state has its own icon and colour token besides its words. */
 const STATE_LOOK: Readonly<
   Record<BlockState, { Icon: (props: { className?: string }) => ReactNode; tone: string }>
 > = {
@@ -381,7 +345,6 @@ const STATE_LOOK: Readonly<
   error: { Icon: CrossIcon, tone: "border-danger text-danger" },
 };
 
-/** Words in the text colour; the border and the icon carry the state's colour. */
 export function StateChip({ state }: { state: BlockState }) {
   const { Icon, tone } = STATE_LOOK[state];
   return (
@@ -402,10 +365,7 @@ const WARN = new Set(["timeout", "cancelled", "budget"]);
 const DANGER = new Set(["llm_error", "index_error"]);
 
 function frameClass(step: StepView | undefined, highlighted: boolean, failed: boolean): string {
-  // The lamp of a diagnosis ("Xem ở …") wins over the run state until the next edit.
-  // Filled: a finished step's green ring looks the same as a brand ring in the town theme.
   if (highlighted) return "border-brand ring-2 ring-brand bg-brand-tint";
-  // The answer board of a failed case: every step can be "Xong" while the answer is wrong.
   if (failed) return "border-danger ring-1 ring-danger bg-surface";
   if (step?.state === "running") return "border-brand ring-1 ring-brand bg-surface";
   if (!step) return "border-line bg-surface";
@@ -415,7 +375,6 @@ function frameClass(step: StepView | undefined, highlighted: boolean, failed: bo
   return "border-warning bg-surface";
 }
 
-/** N6 state of one slot for the followed case: the slot's chip and the map's tile agree. */
 function slotState({ env, view, benchRun }: BenchProps, type: BlockType): BlockState {
   const step = view ? view.followed.steps[nodeIds(env.level)[type]] : undefined;
   const graded = type === "output" ? view?.followed.graded : undefined;
@@ -522,8 +481,6 @@ function Slot(props: BenchProps & { type: BlockType; open: boolean; onPick: () =
     </SlotHead>
   );
 
-  // Closed: one line -- the toy, its state, the verdict of the answer board and anything the
-  // validator says, which must never hide behind a closed slot.
   if (!open) {
     return (
       <section
@@ -550,7 +507,6 @@ function Slot(props: BenchProps & { type: BlockType; open: boolean; onPick: () =
       {optional && (
         <AttachSwitch toy={toy} on onToggle={() => onChange(setAttached(bench, type, false))} />
       )}
-      {/* N17: said where the hand already is, once; nothing to dismiss and nothing in the way. */}
       {tips[type] && (
         <p data-first-touch={type} className="mt-2 max-w-prose text-sm chieu:hidden">
           {tips[type]}
@@ -595,8 +551,6 @@ function Slot(props: BenchProps & { type: BlockType; open: boolean; onPick: () =
             {DESK_VI.precomputed}
           </p>
         )}
-        {/* What the level holds still is worth one line, not one line per knob: the turning
-            knobs are the game, the fixed ones are there for whoever wants to check. */}
         {fixed.length > 0 && (
           <details data-fixed-params={fixed.length} className="group">
             <summary className="inline-flex min-h-11 cursor-pointer items-center gap-1 text-sm text-fg-muted">
@@ -622,9 +576,6 @@ function Slot(props: BenchProps & { type: BlockType; open: boolean; onPick: () =
       </div>
 
       {type === "chunker" && view && <Ingestion run={view.run} node={id} gold={view.gold} />}
-      {/* N22: free, and before any run -- the blade's real cuts through the article the search
-          currently favours. It answers "what did I just do to Điều 12" while the knob is still
-          under the hand, which is the only moment the answer teaches anything. */}
       {type === "chunker" && <ChunkerStrip env={env} params={params} viz={viz} caseId={vizCase} />}
       <SlotIssues env={env} graph={graph} issues={own} />
       {step && (
@@ -639,8 +590,6 @@ function Slot(props: BenchProps & { type: BlockType; open: boolean; onPick: () =
           prompt={promptTokens(view)}
         />
       )}
-      {/* No step for this slot yet, or the bench has moved on from the run: the dome follows
-          the bench. */}
       {!step && preview?.[id] && (
         <StarDome items={preview[id].items} goldChunks={[]} goldRank={null} showGold={false} />
       )}
@@ -691,7 +640,6 @@ function AttachSwitch({ toy, on, onToggle }: { toy: string; on: boolean; onToggl
   );
 }
 
-/** Outcome badge, criteria chips and labels of a graded case (§7, §8.6). */
 export function Grade({ c }: { c: CaseView }) {
   const graded = c.graded;
   const tone = !graded?.counted
@@ -735,8 +683,6 @@ function SlotIssues({ env, graph, issues }: { env: Env; graph: Graph; issues: re
   if (issues.length === 0) return null;
   return (
     <ul className="mt-3 max-w-prose space-y-1">
-      {/* Keyed by position: the validator repeats a line once per list (two G06 "5 > 3"), and
-          duplicate keys leave ghost rows behind. The rows hold no state. */}
       {issues.map((issue, index) => (
         <li
           key={index}
@@ -753,12 +699,6 @@ function SlotIssues({ env, graph, issues }: { env: Env; graph: Graph; issues: re
   );
 }
 
-// --- Controls -------------------------------------------------------------------------------
-
-/**
- * Lưới cụm từ: the level's tray of phrases, each a chip the player presses into the net (no
- * typing, no regex: watchtower.md §3.2). A pressed chip is in the net; the count says how full.
- */
 function PhraseTray({
   env,
   bench,
@@ -798,7 +738,6 @@ function PhraseTray({
   );
 }
 
-/** "Móc kéo · Số đoạn lấy về · top_k": the knob's own toy (never the slot's again), title, code. */
 function ParamLabel({ env, type, param }: { env: Env; type: BlockType; param: string }) {
   const title = env.blocks[type].params.properties[param]?.title ?? param;
   const toy = TOY[type].params?.[param];
@@ -810,11 +749,6 @@ function ParamLabel({ env, type, param }: { env: Env; type: BlockType; param: st
   );
 }
 
-/**
- * Lược dao on L2: a slider over the sizes the level offers, so the player turns the blade and
- * the value can only land on a stop. A native range keeps the arrow keys and the value the
- * screen reader announces; the stop is the step, so no size between two stops can happen.
- */
 function BladeStops({
   param,
   label,
@@ -840,7 +774,6 @@ function BladeStops({
         <label htmlFor={id} className="text-sm font-medium">
           {label}
         </label>
-        {/* Not an <output>: that is a live region, and aria-valuetext already speaks it. */}
         <span aria-hidden="true" className="text-sm font-semibold tabular-nums">
           {current}
         </span>
@@ -856,8 +789,6 @@ function BladeStops({
         onChange={(event) => onValue(options[Number(event.target.value)] ?? null)}
         className="mt-1 h-11 w-full cursor-pointer accent-brand"
       />
-      {/* The stops, so the four places the blade can land are seen before it moves. Hidden
-          from the reader: aria-valuetext already speaks the one it is on. */}
       <ol aria-hidden="true" className="flex justify-between text-xs text-fg-muted tabular-nums">
         {options.map((option, at) => (
           <li
@@ -887,7 +818,6 @@ function Control({
   param: string;
   domain: Domain;
   value: JsonValue;
-  /** Why this switch does nothing at this level: it is shown dimmed and disabled. */
   inert?: string | undefined;
   onValue: (value: JsonValue) => void;
 }) {
@@ -926,7 +856,6 @@ function Control({
         </div>
       );
     case "choice":
-      // Lược dao: the sizes are numbers in a line, so the player turns a blade over them.
       if (param === "chunk_size") {
         return (
           <BladeStops
@@ -965,7 +894,6 @@ function Control({
             <label htmlFor={id} className="text-sm font-medium">
               {label}
             </label>
-            {/* Not an <output>: that is a live region, and aria-valuetext already speaks it. */}
             <span aria-hidden="true" className="text-sm font-semibold tabular-nums">
               {fmtValue(param, current)}
             </span>
@@ -982,7 +910,6 @@ function Control({
               const next = roundToStep(Number(event.target.value), d.step);
               onValue(d.integer ? Math.round(next) : next);
             }}
-            // mt-1: the focus outline (2 px + 2 px offset) must not cover the label's diacritics.
             className="mt-1 h-11 w-full cursor-pointer accent-brand disabled:cursor-not-allowed"
           />
           <p className="text-xs text-fg-muted tabular-nums">
@@ -994,20 +921,15 @@ function Control({
   }
 }
 
-// --- Run state of a slot (§7) ---------------------------------------------------------------
-
 function Ingestion({ run, node, gold }: { run: RunView; node: string; gold: SlotGold | null }) {
   const info = run.ingestion.find((item) => item.node === node);
   if (!info) return null;
-  // Only a case allowed to show its gold may show that its gold was cut in half.
   const split = (gold?.visible && gold.flags.includes("ret.boundary_split")) ?? false;
   return (
     <Blade variant={info.variant} chunks={info.chunks} avgTokens={info.avg_tokens} split={split} />
   );
 }
 
-/** What the packer put in the bin for the followed case, from whichever node packed it. */
-/** What the provider charged for this case's prompt; the packer's own step has no usage. */
 function promptTokens(view: BenchRunView | null): number | null {
   for (const step of Object.values(view?.followed.steps ?? {})) {
     if (step.block === "llm" || step.block === "action_llm") return step.tokens?.in ?? null;
@@ -1037,20 +959,15 @@ function StepState({
   node: string;
   toy: string;
   gold: SlotGold | null;
-  /** The bin's contents for this case; the llm step cannot see the packer's own step. */
   packed: readonly string[];
-  /** Of the case being followed: the ledger is for samples only. */
   caseRole: CaseRole | null;
-  /** The ranked list the packer was handed; like `packed`, not visible from the llm step. */
   ranked: readonly Extract<Fact, { kind: "retrieved" }>["items"][number][];
-  /** The provider's input count for this case, read off the llm step. */
   prompt: number | null;
 }) {
   const retrieved = step.facts?.find(
     (f): f is Extract<Fact, { kind: "retrieved" }> => f.kind === "retrieved",
   );
   const packed = step.facts?.find((f): f is Extract<Fact, { kind: "pack" }> => f.kind === "pack");
-  // Only a visible case carries its answer text at all; a hidden one never does.
   const said = step.facts?.find((f): f is Extract<Fact, { kind: "llm" }> => f.kind === "llm");
   return (
     <div className="mt-3 border-t border-line pt-3 text-sm">
@@ -1241,7 +1158,6 @@ function FactView({ fact, step, gold }: { fact: Fact; step: StepView; gold: Slot
   );
 }
 
-/** Horizontal bar as SVG attributes (no style attribute, CSP). Red when over `max`. */
 export function Bar({ value, max }: { value: number; max: number }) {
   const width = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
@@ -1252,7 +1168,6 @@ export function Bar({ value, max }: { value: number; max: number }) {
   );
 }
 
-/** N22: the strip of whichever article this chunker's search currently favours. */
 function ChunkerStrip({
   env,
   params,
@@ -1265,9 +1180,6 @@ function ChunkerStrip({
   caseId: string | null;
 }) {
   if (viz === null || caseId === null) return null;
-  // Only where the blade can actually be moved. L1 and L3 lock the chunker and fix all four of
-  // its knobs, so the strip there would be a picture of a knob that cannot turn -- and it would
-  // never change, which is the one thing it exists to do (N22 is "dải đoạn ở L2").
   const turnable = (["strategy", "chunk_size", "overlap_pct"] as const).some(
     (name) => domain(env, "chunker", name)?.kind !== "fixed",
   );

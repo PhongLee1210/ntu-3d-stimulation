@@ -5,12 +5,6 @@ import { NPC_ROLES } from "../app/features/campus/npcs";
 import { DEFAULT_STATUS } from "../app/features/campus/sites";
 import { expect, mockApi, npcNames, test, titleOf, waitForIdleScene } from "./fixtures";
 
-/*
- * The four hub NPCs (npc-cast v0.4 §7, §12) and the baked cast (integration spec §8). Names are
- * theme data: read from the active pack's manifest, never written here.
- */
-
-/** Opens "Các khu" if it is closed. */
 async function openZoneList(page: Page) {
   const toggle = page.getByRole("button", { name: "Các khu" });
   if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
@@ -18,11 +12,9 @@ async function openZoneList(page: Page) {
 
 const badge = (page: Page, who: string) => page.locator(`[data-badge="${who}"]`);
 
-/** Lets time pass in the page: measuring idleness, or holding a key, needs it. */
 const pause = (page: Page, ms: number) =>
   page.evaluate((t) => new Promise((resolve) => setTimeout(resolve, t)), ms);
 
-/** Holds a movement key on the scene for `ms`, then lets go. */
 async function walkFor(page: Page, code: string, ms: number) {
   await page.locator("[data-campus-scene]").focus();
   await page.keyboard.down(code);
@@ -43,7 +35,6 @@ test.describe("hub NPCs", () => {
     const names = await npcNames(page);
     for (const { id } of NPCS) {
       await openZoneList(page);
-      // Scoped to the list: once the walk ends, the interact hint offers the same words.
       const row = page
         .locator("#hub-zone-list")
         .getByRole("button", { name: `Nói chuyện với ${names[id].name}`, exact: true });
@@ -54,7 +45,6 @@ test.describe("hub NPCs", () => {
       for (const line of NPC_ROLES[id].greeting) {
         await expect(dialog.getByText(line, { exact: true })).toBeVisible();
       }
-      // An open zone is offered first (the guard's watchtower); otherwise "Để sau" takes focus.
       const zone = NPC_ROLES[id].zone;
       const opens = zone !== null && DEFAULT_STATUS[zone] === "open";
       await expect(
@@ -66,7 +56,6 @@ test.describe("hub NPCs", () => {
       await expect(dialog).toBeHidden();
       await expect(row).toBeFocused();
     }
-    // A second visit says one line of the "not open yet" set.
     const [first] = NPCS;
     if (!first) throw new Error("No NPC.");
     await openZoneList(page);
@@ -96,7 +85,7 @@ test.describe("hub NPCs", () => {
     await expect(badge(page, "lan")).toHaveCount(0);
     for (const { id } of NPCS) await expect(badge(page, id)).toHaveCount(1);
 
-    await page.keyboard.press("Escape"); // closes the zone list
+    await page.keyboard.press("Escape");
     await waitForIdleScene(page);
     const names = await npcNames(page);
     await badge(page, "registrar").click();
@@ -115,14 +104,12 @@ test.describe("hub NPCs", () => {
     const frames = await waitForIdleScene(page);
     await expect(page.locator("html")).toHaveAttribute("data-cast", "ready");
 
-    // Walk a moment, then let go: the walk fades to rest and the frames stop.
     await walkFor(page, "ArrowDown", 600);
     await waitForIdleScene(page);
     let before = await frames();
     await pause(page, 2000);
     expect(await frames()).toBe(before);
 
-    // The NPC talks for the dialog's first seconds (≤ 3.2 s), then nothing moves while it stays open.
     const names = await npcNames(page);
     const [first] = NPCS;
     if (!first) throw new Error("No NPC.");
@@ -162,12 +149,10 @@ test.describe("hub NPCs", () => {
     await waitForIdleScene(page);
     await expect(page.locator("html")).toHaveAttribute("data-cast", "failed");
     expect(warnings.filter((w) => w.includes("cast.json"))).toHaveLength(1);
-    // Talking does not need the figures.
     const names = await npcNames(page);
     await openZoneList(page);
     await page.getByRole("button", { name: `Nói chuyện với ${names.guard.name}` }).click();
     await expect(page.getByRole("dialog", { name: titleOf(names.guard.name) })).toBeVisible();
-    // The aborted request itself is the only error.
     expect(consoleErrors.filter((e) => !e.includes("net::ERR_FAILED"))).toEqual([]);
   });
 });

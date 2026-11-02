@@ -40,7 +40,6 @@ const text = readFileSync(FILE, "utf8");
 const cast = JSON.parse(text) as CastJson;
 const material = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
 
-// Fixed numbers from tools/characters/bake-cast.mjs; a change to its colour rules updates them.
 const TRIANGLES: Record<CastRole, number> = {
   player: 723,
   lan: 700,
@@ -50,10 +49,8 @@ const TRIANGLES: Record<CastRole, number> = {
   examiner: 711,
 };
 const HAS_ACCENT: CastRole[] = ["guard", "operator", "examiner"];
-/** Figures stand 0.045 above the ground (ground decal); the glass bridge clears 1.31. */
 const LIFT = 0.045;
 
-/** Skinned bounding box in scene units (mesh at the origin, scaled by CAST_SCALE). */
 function skinnedBox(mesh: SkinnedMesh): Box3 {
   mesh.updateMatrixWorld(true);
   const box = new Box3();
@@ -64,7 +61,6 @@ function skinnedBox(mesh: SkinnedMesh): Box3 {
   return box.set(box.min.multiplyScalar(CAST_SCALE), box.max.multiplyScalar(CAST_SCALE));
 }
 
-/** A figure playing `clipName`; `sample(t)` poses it at time t and returns its skinned box. */
 function posed(role: CastRole, clipName: string) {
   const mesh = buildFigure(cast, role, material);
   const mixer = new AnimationMixer(mesh);
@@ -78,7 +74,6 @@ function posed(role: CastRole, clipName: string) {
   return { clip, sample };
 }
 
-/** Highest head top (scene units, lifted) over one loop of a clip, sampled every 1/60 s. */
 function peak(role: CastRole, clipName: string): number {
   const { clip, sample } = posed(role, clipName);
   let top = 0;
@@ -121,7 +116,6 @@ describe("cast.json format", () => {
 });
 
 describe("parseCast", () => {
-  /** A fresh copy of cast.json with `edit` applied to it. */
   const broken = (edit: (j: CastJson) => void) => {
     const j = JSON.parse(text) as CastJson;
     edit(j);
@@ -175,7 +169,7 @@ describe("cast decoding", () => {
 
   it("disposeFigure frees the geometry and the skeleton's bone texture", () => {
     const mesh = buildFigure(cast, "guard", material);
-    mesh.skeleton.computeBoneTexture(); // what the renderer does on the first frame
+    mesh.skeleton.computeBoneTexture();
     const freed: string[] = [];
     mesh.geometry.addEventListener("dispose", () => freed.push("geometry"));
     mesh.skeleton.boneTexture?.addEventListener("dispose", () => freed.push("bones"));
@@ -231,7 +225,6 @@ describe("cast colour slots", () => {
   const accent = new Color("#134d8b");
   const d = cast.roles.guard;
   const first = (slot: number) => d.slot.indexOf(slot);
-  /** What a slot-1..3 vertex must get: the theme colour with its sRGB lightness shifted. */
   const shifted = (look: Color, v: number) => {
     const hsl = look.getHSL({ h: 0, s: 0, l: 0 }, SRGBColorSpace);
     const l = MathUtils.clamp(hsl.l + v / 100, 0.04, 0.97);
@@ -273,7 +266,6 @@ describe("cast clips", () => {
     const clips = castClips(cast);
     expect(clips.map((c) => c.name)).toEqual(["rest", "walk", "run", "talk", "nod"]);
     expect(new Set(clips.map((c) => c.uuid)).size).toBe(clips.length);
-    // The prototype bug: without distinct uuids every clipAction returned one shared action.
     const mixer = new AnimationMixer(buildFigure(cast, "player", material));
     expect(new Set(clips.map((c) => mixer.clipAction(c))).size).toBe(clips.length);
   });
@@ -324,13 +316,11 @@ describe("cast sizes (scene units)", () => {
 });
 
 describe("cast animation (integration spec §5.1)", () => {
-  /** A figure with its state machine and its pose at rest. */
   const animated = (role: CastRole = "player") => {
     const mesh = buildFigure(cast, role, material);
     const anim = createAnim(mesh, castClips(cast));
     return { mesh, anim, rest: snapshot(mesh) };
   };
-  /** Frames at `fps` until the figure is no longer busy; returns the seconds that took. */
   const settle = (anim: ReturnType<typeof animated>["anim"], fps: number, speed = 0) => {
     let t = 0;
     while (updateAnim(anim, 1 / fps, speed, false)) {
@@ -405,7 +395,6 @@ describe("castFigures (integration spec §3)", () => {
     const xrayMaterial = new MeshBasicMaterial();
     const { player, people } = castFigures(cast, { figure: material, xray: xrayMaterial });
     const xray = player.body.children.find((child) => child !== player.mesh) as SkinnedMesh;
-    // Shared skeleton and geometry: the silhouette follows every walk and run pose.
     expect(xray.skeleton).toBe(player.mesh.skeleton);
     expect(xray.geometry).toBe(player.mesh.geometry);
     expect(xray.material).toBe(xrayMaterial);

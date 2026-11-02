@@ -1,7 +1,5 @@
 name: Deploy smoke test
 
-# Runs against the live site after every successful Vercel production deployment, once a day
-# (07:00 Vietnam time, catches a sleeping-but-broken API or an expired domain), and on demand.
 on:
   deployment_status:
   schedule:
@@ -21,7 +19,6 @@ concurrency:
 
 jobs:
   smoke:
-    # Vercel names its production environment "Production" (sometimes with the project suffix).
     if: >-
       github.event_name != 'deployment_status' ||
       (github.event.deployment_status.state == 'success' &&
@@ -29,7 +26,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      # Set the repository variable PRODUCTION_URL once the custom domain is live.
       BASE_URL: ${{ inputs.url || vars.PRODUCTION_URL || 'https://v-game-theta.vercel.app' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,10 +34,6 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
-      # After a deployment this check sits on the commit, and Render's checksPass trigger waits
-      # for every check: a red smoke test (e.g. the free API still waking up) then blocks the
-      # very backend deploy it is waiting for. So it only warns there; the daily and manual
-      # runs still fail.
       - id: smoke
         continue-on-error: ${{ github.event_name == 'deployment_status' }}
         run: node frontend/scripts/smoke-deploy.mjs "$BASE_URL"

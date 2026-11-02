@@ -2,12 +2,6 @@ import { domain, fillDefaults, isAllowed, type Env } from "./bench";
 import { TOY, toyName } from "./copy";
 import type { BlockType, Graph, Issue } from "./schema";
 
-/**
- * The rules of backend `engine/validator.py` a bench can break (workbench-v0.1 §5), with the
- * same codes, nodes, ports and Vietnamese messages, in the server's order: fan-in per node, then
- * the cross-param rules. Every other rule cannot happen on a bench (§3.4); the server's 422
- * still shows in the same place if it ever does.
- */
 export function validateGraph(env: Env, graph: Graph): Issue[] {
   const { blocks } = env;
   const issues: Issue[] = [];
@@ -95,21 +89,14 @@ export const errorsOf = (issues: readonly Issue[]) =>
   issues.filter((issue) => issue.severity === "error");
 
 export interface Fix {
-  /** One next step after the server-mirrored message (which says what, not what to do). */
   hint: string;
-  /** Focus target of the error's button: the control that fixes it (§9). */
   slot: BlockType;
   param?: string;
 }
 
-/**
- * The fix for each error a bench can produce (the §5 table), and for the no-op magnifier note;
- * null for anything else.
- */
 export function fixFor(env: Env, graph: Graph, issue: Issue): Fix | null {
   const node = graph.nodes.find((n) => n.id === issue.node);
   if (!node) return null;
-  /** The block in front of the magnifier whose size the message quotes ("{size} đoạn"). */
   const frontOf = (size: number) => {
     const fronts = graph.edges.flatMap(([src, dst]) =>
       dst === `${node.id}.docs` ? graph.nodes.filter((n) => src === `${n.id}.docs`) : [],
@@ -117,7 +104,6 @@ export function fixFor(env: Env, graph: Graph, issue: Issue): Fix | null {
     return fronts.find((n) => (n.params.top_k ?? n.params.top_n) === size) ?? fronts[0];
   };
   if (issue.code === "W_RERANK_NOOP") {
-    // L3's lesson: fetch wider, then let the magnifier pick. At the hook's limit: keep fewer.
     const size = Number(/(\d+)\/\d+ đoạn/.exec(issue.message_vi)?.[1]);
     const front = frontOf(size);
     const knob = front && TOY[front.type].params?.top_k;
@@ -151,7 +137,6 @@ export function fixFor(env: Env, graph: Graph, issue: Issue): Fix | null {
     case "G05 rerank":
       return missing ? { hint: `Gắn ${names.join(" hoặc ")}.`, slot: missing } : null;
     case "G06 rerank": {
-      // The block in front: the one whose size the message quotes ("chỉ lấy {size} đoạn").
       const front = frontOf(Number(/(\d+) đoạn\.$/.exec(issue.message_vi)?.[1]));
       const knob = front && TOY[front.type].params?.top_k;
       return {

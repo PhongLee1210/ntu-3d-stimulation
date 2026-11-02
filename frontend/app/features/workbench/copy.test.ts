@@ -12,7 +12,6 @@ function graphOf(env: Env, edit: (bench: Bench) => Bench = (bench) => bench): Gr
   if (!bench) throw new Error("starter is not drawable");
   return graphFromBench(env, edit(bench));
 }
-/** Target of a one-case lesson whose gold reveal has these ranks by node id. */
 const target = (
   env: Env,
   graph: Graph,
@@ -55,7 +54,6 @@ describe("diagnosis copy", () => {
     expect(target(l1, graph, "llm.cite_missing")?.param).toBe("cite_ids");
     expect(target(l1, graph, "trap.failed")).toEqual({ slot: "llm", param: "system_prompt" });
     expect(target(l1, graph, "something.new")).toBeNull();
-    // L1 has one search: its hook, whatever the rank (and with no gold reveal yet).
     const dense = graphOf(l1, (b) => setAttached(b, "vector_search", true));
     const hook = { slot: "vector_search", param: "top_k" };
     expect(target(l1, dense, "ret.gold_rank:vector_search", { vs: 4 })).toEqual(hook);
@@ -65,26 +63,21 @@ describe("diagnosis copy", () => {
   it("sends a search-rank lesson to the other search when one hook cannot reach it (L3)", () => {
     const keyword = { slot: "bm25_search", param: "top_k" };
     const dense = { slot: "vector_search", param: "top_k" };
-    // Starter: dense only, gold at rank 9 while Móc kéo stops at 5 -> attach the drawer.
     const starter = graphOf(l3);
     expect(target(l3, starter, "ret.gold_rank:vector_search", { vs: 9 })).toEqual(keyword);
-    // A regression ("Ai đó tháo Tủ ngăn kéo") carries the same flag in `cause`, grouped or not.
     const cause = "ret.gold_rank:vector_search";
     expect(target(l3, starter, "regression", { vs: 2 }, cause)).toEqual(keyword);
     const [group] = groupDiagnosis([
       { case: "c1", flag: "regression", cause, message_vi: "Ca của Hà trượt: …" },
     ]);
     expect(group && diagnosisTarget(l3, group, undefined, starter)).toEqual(keyword);
-    // Keyword only, rank 15: keep the dense search.
     const bmOnly = graphOf(l3, (b) =>
       setAttached(setAttached(b, "vector_search", false), "bm25_search", true),
     );
     expect(target(l3, bmOnly, "ret.gold_rank:bm25_search", { bm: 15 })).toEqual(dense);
-    // Both attached: the hook only when the rank is inside its range, else the other hook.
     const both = graphOf(l3, (b) => setAttached(b, "bm25_search", true));
     expect(target(l3, both, "ret.gold_rank:vector_search", { vs: 4, bm: 12 })).toEqual(dense);
     expect(target(l3, both, "ret.gold_rank:vector_search", { vs: 9, bm: 10 })).toEqual(keyword);
-    // Neither hook reaches: say so, and point at the knob still open (the chunker, in L3).
     expect(target(l3, both, "ret.gold_rank:vector_search", { vs: 9, bm: 14 })).toEqual({
       slot: "chunker",
       param: "strategy",
@@ -95,7 +88,6 @@ describe("diagnosis copy", () => {
       param: "strategy",
       why: "Không móc nào với tới đoạn đáp án: Vòm Sao không tìm thấy, Tủ ngăn kéo không tìm thấy. Thử đổi cách chia ở Lược dao.",
     });
-    // L1 fixes the chunker: nothing left to turn, so no button.
     const l1Dense = graphOf(l1, (b) => setAttached(b, "vector_search", true));
     expect(target(l1, l1Dense, "ret.gold_rank:vector_search", { vs: 12 })).toBeNull();
   });
@@ -113,11 +105,9 @@ describe("diagnosis copy", () => {
   });
 
   it("sends a full box to the knob that sets how many passages go in", () => {
-    // L3: the magnifier (its switch while detached, its knob once attached).
     const lens = { slot: "rerank", param: "top_n" };
     expect(target(l3, graphOf(l3), "budget.exceeded")).toEqual(lens);
     expect(target(l3, graphOf(l3), "ctx.gold_dropped", { vs: 2 })).toEqual(lens);
-    // L1 and L2 have no magnifier: Móc kéo.
     const dense = graphOf(l1, (b) => setAttached(b, "vector_search", true));
     expect(target(l1, dense, "budget.exceeded")).toEqual({ slot: "vector_search", param: "top_k" });
     const l2 = testEnv("chunk-tuning");
@@ -134,7 +124,6 @@ describe("diagnosis copy", () => {
       "Cấu hình này giống hệt lượt vừa rồi nên kết quả sẽ giống hệt. Đổi một món rồi mở ca để thấy khác biệt.";
     const run = replay(short);
     expect(run && sameGraphNote(run)).toBe(same);
-    // An AI call that failed is not cached: the same graph calls it again.
     const graded = short.findIndex((f) => f.event === "case.graded");
     const failed = short.map((f, index) =>
       index === graded

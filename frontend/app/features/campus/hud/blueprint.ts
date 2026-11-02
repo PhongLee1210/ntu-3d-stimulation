@@ -23,13 +23,6 @@ import {
   type Vec2,
 } from "../layout";
 
-/*
- * The scene loader's diorama ("sa bàn", art §8.4): a pale isometric drawing of the campus in
- * SVG, one user unit per world unit, projected like the 3D camera (camera.ts) at HOME_YAW, so the
- * first 3D frame lands exactly on it: every entry to /play starts the view at home (store
- * resetView, routes/play clientLoader). Pure data, no three.js.
- */
-
 export type Role =
   | "plate"
   | "board"
@@ -57,16 +50,12 @@ export interface Shape {
 
 export interface Piece {
   kind: "base" | "tile" | "flat" | "tree" | "bldg" | "fig";
-  /** Diorama progress (sceneLoad `progress`) at which the piece is built. */
   at: number;
   shapes: Shape[];
-  /** Ground footprint [x0, x1, z0, z1] of a standing piece, for the painter's order. */
   fp?: readonly [number, number, number, number];
 }
 
-/** [x0, x1, y0, y1, z0, z1]. */
 type Box6 = readonly [number, number, number, number, number, number];
-/** A box, or a pyramid from the box's base (y0) to its apex (y1) when `roof`. */
 export interface Mass {
   role: Role;
   box: Box6;
@@ -78,14 +67,7 @@ const roof = (role: Role, ...box: Box6): Mass => ({ role, box, roof: true });
 const fromFootprint = (role: Role, f: Box, y0: number, y1: number): Mass =>
   m(role, f.x - f.halfX, f.x + f.halfX, y0, y1, f.z - f.halfZ, f.z + f.halfZ);
 
-/**
- * Mirrors scene/campus.ts (which imports three.js): heights and tower massing. Coarse boxes
- * and pyramids, one stack per visible mass, listed bottom to top; colonnades, lamps and
- * statues are left out. The bbox test guards buildings; the ground's paths are not mirrored
- * but shared with the scene through layout.ts.
- */
 export const MIRROR = {
-  /** mainBuilding(): wings and pavilions. Plinths fold into the walls. */
   main: [
     [m("wall", -9.75, -3.0, 0, 2.37, -9.75, -6.15)],
     [m("wall", 3.0, 9.75, 0, 2.37, -9.75, -6.15)],
@@ -95,7 +77,6 @@ export const MIRROR = {
       m("wall", c - 0.31, c + 0.31, 3.03, 3.48, -7.01, -6.39),
     ]),
   ],
-  /** The stepped tower base and the porch; the landmark archetype stands on them. */
   tower: [
     m("wall", -3.0, 3.0, 0, 2.9, -9.9, -5.3),
     m("trim", -3.12, 3.12, 2.9, 3.02, -10.02, -5.18),
@@ -119,9 +100,7 @@ export const MIRROR = {
     m("wall", -0.56, 0.56, 6.28, 7.65, -8.16, -7.04),
     roof("wall", -0.3, 0.3, 7.65, 10.28, -7.9, -7.3),
   ],
-  /** Spire hall only: the porch canopy on four columns. */
   canopy: m("trim", -1.65, 1.65, 1.3, 1.46, -5.3, -4.22),
-  /** archGate() (with colonnades) and pierGate(); fences left out. */
   archGate: [
     [m("wall", -2.8, -1.54, 0, 1.78, 11.55, 12.42)],
     [m("wall", 1.54, 2.8, 0, 1.78, 11.55, 12.42)],
@@ -160,14 +139,12 @@ export const MIRROR = {
     m("trim", 6.95, 11.05, 1.75, 1.95, 2.55, 5.25),
     m("wall", 7.55, 10.45, 1.95, 2.42, 3.0, 4.8),
   ],
-  /** Awnings: north and south (x 7.05–10.95), east (z 2.65–5.15), sloping 0.38 rad outwards. */
   awnings: {
     y: [1.62, 1.38],
     north: [7.05, 10.95, 1.95, 2.55],
     south: [7.05, 10.95, 5.25, 5.85],
     east: [11.05, 11.65, 2.65, 5.15],
   },
-  /** backCampus() roof heights over the BACK footprints; the domed hall's vault as a box. */
   back: [
     [BACK.annex, 1.36],
     [BACK.solarHall, 1.86],
@@ -180,13 +157,10 @@ export const MIRROR = {
   vault: m("wall", 4.3, 8.9, 1.58, 2.7, -17.5, -13.7),
 } as const;
 
-// --- Projection and shapes ------------------------------------------------------------------
-
 const S2 = Math.SQRT2;
 const S6 = Math.sqrt(6);
 const n3 = (n: number) => String(Math.round(n * 1000) / 1000);
 const X = (x: number, _y: number, z: number) => (x - z) / S2;
-/** SVG y grows downwards: −sy of camera.ts' toScreen. */
 const Y = (x: number, y: number, z: number) => (x - 2 * y + z) / S6;
 type P3 = readonly [number, number, number];
 const pt = ([x, y, z]: P3) => `${n3(X(x, y, z))},${n3(Y(x, y, z))}`;
@@ -197,7 +171,6 @@ const poly = (cls: string, points: readonly P3[], extra: Record<string, string> 
   attrs: { points: points.map(pt).join(" "), ...extra },
 });
 
-/** The faces the camera sees: +z (left on screen), +x (right), top (art §2.3 shading). */
 function boxShapes(role: Role, [x0, x1, y0, y1, z0, z1]: Box6): Shape[] {
   const r = `bp-${role}`;
   return [
@@ -222,7 +195,6 @@ function boxShapes(role: Role, [x0, x1, y0, y1, z0, z1]: Box6): Shape[] {
   ];
 }
 
-/** All four slopes, back ones first: a low hip roof shows its back slopes too. */
 function pyramidShapes(role: Role, [x0, x1, yb, yt, z0, z1]: Box6): Shape[] {
   const r = `bp-${role}`;
   const apex: P3 = [(x0 + x1) / 2, yt, (z0 + z1) / 2];
@@ -257,7 +229,6 @@ const flat = (
     extra,
   );
 
-/** A circle on the ground: an ellipse r wide and r/√3 tall on screen. */
 const disc = (role: Role, x: number, z: number, r: number, y: number): Shape => ({
   tag: "ellipse",
   cls: `f-top bp-${role}`,
@@ -265,7 +236,6 @@ const disc = (role: Role, x: number, z: number, r: number, y: number): Shape => 
 });
 
 type TreeKind = "round" | "cypress" | "park";
-/** Crown centre height and radius (buildRoundTree, buildCypress; park trees are 0.55×). */
 const CROWN: Record<TreeKind, readonly [number, number]> = {
   round: [1.55, 0.8],
   cypress: [0.83, 0.23],
@@ -288,7 +258,6 @@ function treeShapes({ x, z }: Vec2, kind: TreeKind): Shape[] {
   return [trunk, crown];
 }
 
-/** A standing figure as a maquette statue: skirt or legs, body, head (art §5.8, §5.9). */
 function figureShapes({ x, z }: Vec2, lan: boolean): Shape[] {
   const bx = X(x, 0, z);
   const by = Y(x, 0, z);
@@ -331,18 +300,12 @@ const footprint = (masses: readonly Mass[]) => {
   return [x0, x1, z0, z1] as const;
 };
 
-// --- Pieces ---------------------------------------------------------------------------------
-
 export interface Stack {
-  /** Diorama progress that builds it. */
   at: number;
-  /** Drawn in order, bottom to top; the first one's footprint orders the stack. */
   masses: readonly Mass[];
-  /** The market's sloped awnings ride along (awningShapes). */
   awnings?: boolean;
 }
 
-/** Every building of the active landmark pack, with its threshold (also read by tests). */
 export function buildingStacks(landmark: CampusTheme["landmark"]): Stack[] {
   const spire = landmark.archetype === "spire-hall";
   const gate = landmark.colonnades ? MIRROR.archGate : MIRROR.pierGate;
@@ -363,7 +326,6 @@ export function buildingStacks(landmark: CampusTheme["landmark"]): Stack[] {
   ];
 }
 
-/** The north awning hangs behind the hall, so it is painted before the hall's masses. */
 function northAwning(): Shape {
   const { y, north } = MIRROR.awnings;
   const [yIn, yOut] = y;
@@ -397,13 +359,11 @@ function awningShapes(): Shape[] {
   ];
 }
 
-/** Where the player stands on entry: in front of the door named by `?at=`, else the spawn. */
 export function entryFocus(search: string): Vec2 {
   const site = parseArrival(new URLSearchParams(search).get("at"));
   return site ? arrivalPose(site).position : SPAWN;
 }
 
-/** The first 3D frame's visible rectangle as an SVG viewBox "x y w h" in world units. */
 export function blueprintViewBox(width: number, height: number, focus: Vec2): string {
   const view = viewFor(width, height);
   const f = toScreen(focus.x, 0, focus.z);
@@ -415,14 +375,12 @@ export function blueprintViewBox(width: number, height: number, focus: Vec2): st
 
 const { minX, maxX, minZ, maxZ } = BASE;
 
-/** Base: white plate and soil block with the blank board on top, there from the start. */
 const baseShapes = (): Shape[] => [
   ...boxShapes("plate", [minX - 0.25, maxX + 0.25, -0.8, -0.6, minZ - 0.25, maxZ + 0.25]),
   ...boxShapes("soil", [minX, maxX, -0.6, 0, minZ, maxZ]).slice(0, 2),
   flat("board", rect(minX, maxX, minZ, maxZ), 0, { "data-bp": "board" }),
 ];
 
-/** 8 × 9 grass tiles on the board, as [x0, z0] corners of 0.05-inset rectangles. */
 const TILE_W = (maxX - minX) / 8;
 const TILE_D = (maxZ - minZ) / 9;
 const tileRects = () =>
@@ -432,7 +390,6 @@ const tileRects = () =>
     return { x0, z0, xz: rect(x0 + 0.05, x0 + TILE_W - 0.05, z0 + 0.05, z0 + TILE_D - 0.05) };
   });
 
-/** The overview's frame (camera.ts ORBIT_FRAME round PIVOT) as a viewBox, for the pre-rendered board. */
 const PIVOT_SCREEN = toScreen(PIVOT.x, 0, PIVOT.z);
 export const SHELL_VIEWBOX = [
   PIVOT_SCREEN.sx - ORBIT_FRAME.half,
@@ -443,10 +400,6 @@ export const SHELL_VIEWBOX = [
   .map(n3)
   .join(" ");
 
-/**
- * The empty board for the pre-rendered shell: the base, and the tiles as one ghost path that
- * draws exactly like the live diorama's unbuilt tiles (no JS, a small HTML payload).
- */
 export function shellBoard(): Piece[] {
   const grid = tileRects()
     .map(({ xz }) => `M${xz.map(([x, z]) => pt([x, 0.004, z])).join(" ")}Z`)
@@ -457,7 +410,6 @@ export function shellBoard(): Piece[] {
   ];
 }
 
-/** Every piece of the diorama in painter's order, each with the progress that builds it. */
 export function blueprintPieces(landmark: CampusTheme["landmark"], player: Vec2): Piece[] {
   const pieces: Piece[] = [];
   const add = (kind: Piece["kind"], at: number, shapes: Shape[], fp?: Piece["fp"]) =>
@@ -465,7 +417,6 @@ export function blueprintPieces(landmark: CampusTheme["landmark"], player: Vec2)
 
   add("base", 0, baseShapes());
 
-  // Grass tiles, built as a wave from the far corner towards the viewer.
   const tiles = tileRects().map(({ x0, z0, xz }) => ({
     key: x0 + z0 + 0.01 * x0,
     shape: flat("grass", xz, 0.004),
@@ -474,7 +425,6 @@ export function blueprintPieces(landmark: CampusTheme["landmark"], player: Vec2)
     .sort((a, b) => a.key - b.key)
     .forEach(({ shape }, i, all) => add("tile", 0.02 + (0.5 * i) / (all.length - 1), [shape]));
 
-  // Ground details complete exactly on the chunk signal (stage 1 never passes 0.54).
   const lake: [number, number][] = [[LAKE.x, LAKE.z]];
   for (let k = 0; k <= 12; k += 1) {
     const t = ((k / 12) * Math.PI) / 2;
@@ -500,7 +450,6 @@ export function blueprintPieces(landmark: CampusTheme["landmark"], player: Vec2)
   ];
   flats.forEach((shapes, i) => add("flat", 0.55 + (0.05 * i) / (flats.length - 1), shapes));
 
-  // Trees in the same wave order; they finish while the scene builds.
   const trees = [
     ...ROUND_TREES.map((t) => [t, "round"] as const),
     ...CYPRESS_TREES.map((t) => [t, "cypress"] as const),
@@ -531,10 +480,6 @@ export function blueprintPieces(landmark: CampusTheme["landmark"], player: Vec2)
   return drawOrder(pieces);
 }
 
-/**
- * Painter's order: flat pieces first, then standing ones topologically (A before B when A is
- * behind B on x or z and they overlap on screen), ties in list order.
- */
 export function drawOrder(pieces: readonly Piece[]): Piece[] {
   const flats = pieces.filter((p) => !p.fp);
   const stand = pieces.filter((p) => p.fp);
@@ -548,7 +493,7 @@ export function drawOrder(pieces: readonly Piece[]): Piece[] {
       if (i >= j) return;
       const [a0 = 0, a1 = 0] = span(a.fp);
       const [b0 = 0, b1 = 0] = span(b.fp);
-      if (a1 <= b0 || b1 <= a0) return; // apart on screen
+      if (a1 <= b0 || b1 <= a0) return;
       if (behind(a.fp, b.fp)) {
         after[i]?.push(j);
         deg[j] = (deg[j] ?? 0) + 1;

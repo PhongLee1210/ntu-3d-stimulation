@@ -6,7 +6,6 @@ import { publicLevelJson } from "./test-fixtures";
 
 describe("PublicLevelSchema", () => {
   it("still reads a level from a backend without the star rules or the info count", () => {
-    // Vercel deploys on merge, Render only after CI: the page meets the old backend for a while.
     const old = publicLevelJson("grounded-citation") as Record<string, unknown> & {
       case_counts: Record<string, unknown>;
     };

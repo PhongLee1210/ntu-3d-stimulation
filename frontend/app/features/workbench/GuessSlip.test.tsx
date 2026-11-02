@@ -15,7 +15,6 @@ const short = parseSse(readText("e2e", "data", "run-l1-short.sse"));
 const gradedAt = short.findIndex((f) => f.event === "case.graded");
 const finishedAt = short.findIndex((f) => f.event === "run.finished");
 
-/** The short L1 run (v01 = #1, t01 = #2) with v01 failing for want of a citation. */
 function citeMissingRun(diagnosis: object[] = []): RunView {
   const frames = short.slice(0, finishedAt).map((f, index) =>
     index === gradedAt
@@ -37,7 +36,6 @@ function citeMissingRun(diagnosis: object[] = []): RunView {
   return run;
 }
 
-/** The short L1 run, every case passing, but over the token budget: whyCase asks about it. */
 function overBudgetRun(): RunView {
   const frames = short.slice(0, finishedAt).map((f) =>
     f.event === "run.scored"
@@ -109,19 +107,16 @@ describe("GuessSlip", () => {
   it("takes a count, a sure bet on a sample case and picked failures, one click each", () => {
     let last: Slip = EMPTY_SLIP;
     render(<Harness onSlip={(slip) => (last = slip)} />);
-    // L1: 8 normal + 2 trap = 10 cases, 3 of them samples.
     const count = screen.getByRole("group", { name: "Đạt mấy/10?" });
     expect(within(count).getAllByRole("radio")).toHaveLength(11);
     fireEvent.click(within(count).getByRole("radio", { name: "7" }));
 
-    // No confidence before a call is made; "Đoán" by default once it is.
     expect(screen.queryByRole("group", { name: /Mức chắc/ })).toBeNull();
     const first = screen.getByRole("group", { name: "Câu #1 · Câu mẫu" });
     fireEvent.click(within(first).getByRole("radio", { name: "Trượt" }));
     expect(within(first).getByRole("radio", { name: "Đoán" })).toHaveProperty("checked", true);
     fireEvent.click(within(first).getByRole("radio", { name: "Chắc" }));
 
-    // Hidden and trap cases by number only: #4–#10.
     const failing = screen.getByRole("group", { name: "Câu nào trượt?" });
     expect(within(failing).getAllByRole("checkbox")).toHaveLength(7);
     fireEvent.click(within(failing).getByRole("checkbox", { name: "Câu #9" }));
@@ -136,8 +131,6 @@ describe("GuessSlip", () => {
     clear.focus();
     fireEvent.click(clear);
     expect(last).toEqual(EMPTY_SLIP);
-    // Goes disabled instead of unmounting, so the keyboard does not fall back to <body> and
-    // have to tab through the whole brief and bench again to reach Mở ca.
     expect(clear).toHaveProperty("disabled", true);
     expect(document.activeElement).toBe(clear);
   });
@@ -191,14 +184,9 @@ describe("Results with the guess loop", () => {
   });
 
   it("does not leave the right reason first in the budget menu", () => {
-    // The menu exists because picking a reason from a list transfers better than reading one
-    // (Johnson & Mayer 2010, L1 §11), and that only holds while the answer's position is not a
-    // tell. The budget menu has no case to rotate with, so seeding the rotation with the case
-    // number alone left its answer first every single time.
     show(overBudgetRun(), null);
     const menu = screen.getByRole("group", { name: "Vì sao lượt này vượt ngân sách?" });
     const answer = "Kéo nhiều đoạn quá và dặn trả lời dài, nên thùng gần đầy ở mọi câu";
-    // The radio itself is sr-only inside its label, so read the labels in DOM order.
     const shown = [...menu.querySelectorAll("label")].map((l) => l.textContent.trim());
     expect(shown).toContain(answer);
     expect(shown[0]).not.toBe(answer);
@@ -226,8 +214,6 @@ describe("WhyMenu reports the stable index, not the rotated display position", (
   const menu = { options: ["Lý do A", "Lý do B", "Lý do C"] as [string, ...string[]] };
 
   it("reports the clicked option's place in menu.options, however the rotation drew it", () => {
-    // turn=2 rotates the display so option 1 ("Lý do B") is shown FIRST. Clicking by its text,
-    // not by position, is what proves the report is the stable index and not the display slot.
     const seen: number[] = [];
     render(
       <WhyMenu

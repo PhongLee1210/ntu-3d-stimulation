@@ -8,7 +8,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** jsdom has no matchMedia; `narrow` decides what every query answers. */
 function viewport(narrow: boolean) {
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: narrow && query.includes("max-width"),
@@ -43,14 +42,11 @@ describe("Viz", () => {
     const { container } = draw();
     const figure = container.querySelector("figure[data-vg-viz]");
     expect(figure).not.toBeNull();
-    // A picture with a table behind the toggle.
     expect(figure?.getAttribute("data-vg-viz")).toBe("both");
     expect(figure?.querySelector("figcaption")?.textContent).toContain(
       "Thùng còn chỗ: 420 trên 3.000 token.",
     );
-    // One of the seven fixed stamps, word for word: no component may invent one.
     expect(figure?.textContent).toContain("Đo từ lượt của bạn");
-    // role="img" on the wrapper orphaned every list item last time it was tried.
     expect(container.querySelector('[role="img"]')).toBeNull();
   });
 
@@ -69,7 +65,6 @@ describe("Viz", () => {
   });
 
   it("opens as a table on a narrow screen, where the table is the main interface", () => {
-    // frontend-architecture §8.2: "Ở 375 px, dạng bảng là mặc định."
     viewport(true);
     const { container } = draw();
     expect(container.querySelector("table")).not.toBeNull();
@@ -110,9 +105,6 @@ describe("Viz", () => {
   });
 
   it("offers no toggle for a figure that already is a table", () => {
-    // History.tsx is the real caller: its content is a literal <table>, not a picture, so
-    // `form="table"` is the only legal way to opt out of the toggle -- a picture with no
-    // table alternative at all cannot be constructed; it would fail to typecheck.
     viewport(false);
     render(
       <Viz caption="x" stamp="run" form="table">
@@ -120,7 +112,6 @@ describe("Viz", () => {
       </Viz>,
     );
     expect(screen.queryByRole("button", { name: /Xem dạng/ })).toBeNull();
-    // Said on the element, so the CI gate does not have to guess from the DOM.
     expect(document.querySelector("[data-vg-viz]")?.getAttribute("data-vg-viz")).toBe("table");
     expect(document.querySelector("[data-picture]")).not.toBeNull();
   });
@@ -138,8 +129,6 @@ describe("Viz", () => {
 
 describe("the table form scrolls, so it has to be reachable", () => {
   it("gives the scrolling wrapper a tab stop", () => {
-    // axe scrollable-region-focusable, serious: without this a keyboard-only player cannot
-    // scroll a wide table. Here the tab stop does something, unlike a chip that does nothing.
     viewport(true);
     const { container } = draw();
     const scroller = container.querySelector(".overflow-x-auto");

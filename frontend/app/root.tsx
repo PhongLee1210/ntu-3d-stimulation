@@ -17,7 +17,6 @@ import { THEME_STYLESHEET_ID, themeAssetUrl, themeStylesheetUrl } from "./featur
 import { scrollKey } from "./lib/scroll";
 import { AUTHOR } from "./lib/site";
 
-// Runs at build time only (pre-render and SPA shell); the result is embedded in the HTML.
 export async function loader() {
   return {
     catalog: await loadThemeCatalog(
@@ -43,7 +42,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const fontPreloads = themeId ? (catalog.manifests[themeId]?.fonts.preload ?? []) : [];
 
   return (
-    // The bootstrap script may switch data-theme before hydration.
     <html lang="vi" data-theme={themeId} suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
@@ -69,8 +67,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
               suppressHydrationWarning
             />
             <script
-              // Built from validated theme ids at build time; allowed by a CSP hash.
-              // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
               dangerouslySetInnerHTML={{
                 __html: themeBootstrapScript(
                   catalog.themes.map((theme) => theme.id),

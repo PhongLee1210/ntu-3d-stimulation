@@ -29,7 +29,6 @@ export function Hero() {
         decoding="async"
         className="absolute inset-0 -z-20 size-full object-cover object-[60%_center]"
       />
-      {/* Scrim keeps the headline legible over any photo. */}
       <div
         aria-hidden="true"
         className="absolute inset-0 -z-10 bg-linear-to-t from-ink via-ink/85 to-ink/20 md:bg-linear-to-r"

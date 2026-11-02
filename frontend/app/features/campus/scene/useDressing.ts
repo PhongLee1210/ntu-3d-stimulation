@@ -9,10 +9,6 @@ import { buildProp, paintProp, parseProps, type PropsJson } from "./props";
 
 export const PROPS_URL = "/models/props.json";
 
-/**
- * The props file, or null when it cannot be had: the campus then has no props, though the bulky
- * ones' collision boxes (layout OBSTACLES) and sun shade (buildShadows) are constant and stay.
- */
 export async function fetchProps(load: typeof fetch = fetch): Promise<PropsJson | null> {
   try {
     const response = await load(PROPS_URL);
@@ -38,7 +34,6 @@ const SLOT: Record<ColourSlot, (pal: Palette) => Color> = {
   "lib.roof": (p) => p.lib.roof,
 };
 
-/** Reverses every triangle: the back faces of a double-sided source, baked like any other face. */
 function backFaces(geometry: BufferGeometry): BufferGeometry {
   const index = geometry.getIndex();
   if (!index) throw new Error("backFaces() needs an indexed geometry");
@@ -53,10 +48,6 @@ const at = new Vector3();
 const turn = new Quaternion();
 const size = new Vector3();
 
-/**
- * Every placed prop in one static geometry (one draw call), painted from the palette and baked
- * by world normal like the rest of the statics, so a theme or an hour only re-bakes it.
- */
 export function buildDressing(props: PropsJson, pal: Palette): BufferGeometry {
   const parts = DRESSING.flatMap((row) => {
     const data = props.props[row.prop];
@@ -75,18 +66,12 @@ export function buildDressing(props: PropsJson, pal: Palette): BufferGeometry {
       paintProp(geometry, data, colours);
       geometry.applyMatrix4(matrix);
       const sides = data.doubleSided ? [geometry, backFaces(geometry.clone())] : [geometry];
-      // The foot of each upright face darkens like the buildings' (art §2.4 item 1).
       return sides.map((side) => part(side, { ao: true }, pal.light));
     });
   });
   return merge(parts);
 }
 
-/**
- * buildDressing, or null when props.json does not match DRESSING (a prop missing, a material
- * renamed: deploy or cache skew, /models/ has no hashed names). A decoration must never throw
- * into SceneBoundary, which would fail the whole campus for the session.
- */
 export function tryBuildDressing(props: PropsJson, pal: Palette): BufferGeometry | null {
   try {
     return buildDressing(props, pal);
@@ -96,11 +81,6 @@ export function tryBuildDressing(props: PropsJson, pal: Palette): BufferGeometry
   }
 }
 
-/**
- * The dressing mesh: undefined until props.json is settled, then null if it could not be had.
- * Fetched only once the loader is done (the first campus frame is on screen), so the props
- * never hold up the first frame; they arrive during the loader's fade.
- */
 export function useDressing(pal: Palette): BufferGeometry | null | undefined {
   const done = useSceneLoad((state) => state.stage >= STAGE.done);
   const [props, setProps] = useState<PropsJson | null>();

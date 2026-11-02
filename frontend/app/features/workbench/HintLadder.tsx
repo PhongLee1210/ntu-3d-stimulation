@@ -22,12 +22,6 @@ import {
 } from "./hints";
 import type { RunView } from "./run";
 
-/**
- * The ladder's state for one level (N16, X28): the target the player's own last run leaves, that
- * run's failure on the book, and the two moves that change it -- opening the next hint, and a free
- * look. Every move builds on the book in memory and then stores it, so a blocked or cleared store
- * still walks the ladder; it only forgets it on reload.
- */
 export function useHints({
   levelId,
   zoneId,
@@ -38,21 +32,16 @@ export function useHints({
   levelId: string;
   zoneId: string;
   run: RunView | null;
-  /** The graph JSON `run` was sent with: a failure counts once per configuration. */
   ranBody: string | null;
   gate: GateContext;
 }) {
   const [book, setBook] = useState<HintBook>(() => loadHints(levelId));
   const target = run ? hintTarget(levelId, run, levelStars(readProgress(), zoneId, levelId)) : null;
-  // The run's failure goes on the book during the render that first shows the run -- state
-  // derived from a change in the run, not a system to sync -- so no frame shows a stale gate.
   const [counted, setCounted] = useState<string | null>(null);
   if (run && target && ranBody !== null && counted !== run.runId) {
     setCounted(run.runId);
     setBook(recordFail(book, target.star, configKey(ranBody), run.scope === "mau"));
   }
-  // The store follows the book. A store that cannot be written still walks the ladder; it
-  // only forgets it on reload.
   useEffect(() => {
     saveHints(levelId, book);
   }, [levelId, book]);
@@ -75,12 +64,6 @@ const pointerLabel = (pointer: Pointer) =>
         (pointer.param && TOY[pointer.slot].params?.[pointer.param]) ?? TOY[pointer.slot].name,
       );
 
-/**
- * N16: hints 1 to 3, each naming a case and pointing at a thing on the screen; the third is the
- * worked solution, behind its own gate (X28) and said to be one. Optional by
- * design -- nothing is in the way of a player who does not want them (expertise reversal,
- * Kalyuga et al. 2003) -- and hidden on the projector, where they are the pairs' to open (R3).
- */
 export function HintLadder({
   levelId,
   target,
@@ -95,11 +78,8 @@ export function HintLadder({
   levelId: string;
   target: Target;
   book: HintBook;
-  /** The rest of hint 3's gate (`hint3Gate`): failures at this star, or the pool. */
   gate3: boolean;
-  /** The review case to fix for after hint 3, or null where the star has none (daily-shift §2). */
   variant: string | null;
-  /** A request or a run is out: the variant waits for it. */
   busy: boolean;
   onOpen: () => void;
   onPointer: (pointer: Pointer) => void;
@@ -111,7 +91,6 @@ export function HintLadder({
   const shown = ([1, 2, 3] as const)
     .filter((n) => n <= opened)
     .map((n) => ({ n, hint: hintFor(levelId, target, n) }));
-  // A level with no ladder written for it offers none rather than an empty box.
   if (hintFor(levelId, target, 1) === null) return null;
 
   return (
@@ -153,7 +132,6 @@ export function HintLadder({
       ) : (
         <>
           {opened === 1 && <p className="mt-3 text-sm text-fg-muted">{HINTS_VI.waitLook}</p>}
-          {/* Said in full, numbers included: a gate the player cannot see reads as arbitrary. */}
           {opened >= 3 && variant !== null && (
             <div className="mt-4 border-t border-line pt-4">
               <h3 className="font-bold">{HINTS_VI.variantHeading}</h3>

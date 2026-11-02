@@ -1,8 +1,5 @@
 import { Link } from "react-router";
 
-// The "khối lắp ghép" mark (public/favicon.svg): five isometric blocks form a V; the amber
-// block at the point is the one just snapped in. Theme tokens instead of fixed colours, so the
-// mark follows every theme pack; on an ink background the tile blends in and the blocks remain.
 const CUBES_RIGHT =
   "M4 3 6 4 6 6 4 7 2 6 2 4ZM12 3 14 4 14 6 12 7 10 6 10 4ZM6 6 8 7 8 9 6 10 4 9 4 7ZM10 6 12 7 12 9 10 10 8 9 8 7Z";
 const CUBES_LEFT = "M2 4 4 5 4 7 2 6ZM10 4 12 5 12 7 10 6ZM4 7 6 8 6 10 4 9ZM8 7 10 8 10 10 8 9Z";

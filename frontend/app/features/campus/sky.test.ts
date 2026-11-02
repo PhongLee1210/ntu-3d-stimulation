@@ -17,11 +17,9 @@ import {
 } from "./sky";
 
 const HANOI = { name: "Hà Nội", lat: 21.0285, lon: 105.8542, timeZone: "Asia/Ho_Chi_Minh" };
-/** Hanoi has no daylight saving: +07:00 all year. */
 const at = (day: string, hm: string) => Date.parse(`${day}T${hm}:00+07:00`);
 const minutes = (hm: string) => Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3));
 
-/** Sunrise and sunset (sun centre at −0.833°) of a Hanoi day, as minutes after midnight. */
 function sunTimes(day: string): [number, number] {
   const start = at(day, "00:00");
   let rise = 0;
@@ -36,7 +34,6 @@ function sunTimes(day: string): [number, number] {
 }
 
 describe("sun and phase at the theme's place (weather-data §7, campus v0.4 W3)", () => {
-  // Open-Meteo's sunrise/sunset for Hanoi on the 15th of each month of 2025, and 2026-10-08.
   const REFERENCE = [
     ["2025-01-15", "06:35", "17:35"],
     ["2025-02-15", "06:26", "17:54"],
@@ -74,7 +71,6 @@ describe("sun and phase at the theme's place (weather-data §7, campus v0.4 W3)"
   });
 
   it("flips at the sun-altitude edges (±6°) around sunrise and sunset, to the minute", () => {
-    // weather-time-visuals §1.1, 2026-10-08: dawn 05:28, day 06:20, dusk 17:09, night 18:01.
     const phase = (hm: string) => phaseAt(at("2026-10-08", hm), HANOI);
     expect([phase("05:25"), phase("05:31")]).toEqual(["night", "dawn"]);
     expect([phase("06:17"), phase("06:23")]).toEqual(["dawn", "day"]);
@@ -121,7 +117,6 @@ describe("weather groups", () => {
   });
 
   it("groups every WMO code exactly", () => {
-    // Every code in Open-Meteo's "WMO Weather interpretation codes" table (checked 2026-10-08).
     const expected = {
       clear: [0, 1],
       partly_cloudy: [2],
@@ -140,7 +135,6 @@ describe("weather groups", () => {
 });
 
 describe("Open-Meteo forecast", () => {
-  // Shape of the live reply to forecastUrl(HANOI) (2026-10-08), changed to code 63 (rain).
   const reply = (current: Record<string, unknown> = {}) => ({
     latitude: 21.05448,
     longitude: 105.898476,
@@ -154,7 +148,7 @@ describe("Open-Meteo forecast", () => {
       ...current,
     },
   });
-  const NOW = Date.parse("2026-10-08T07:00:00Z"); // 14:00 in Hanoi
+  const NOW = Date.parse("2026-10-08T07:00:00Z");
 
   it("asks for the place's current temperature and code only, in GMT", () => {
     const url = new URL(forecastUrl(HANOI));

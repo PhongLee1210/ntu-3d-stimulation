@@ -1,6 +1,5 @@
 import type { ZoneLocation, ZoneStatus } from "./schema";
 
-/** Colour bar per zone; matches each building's roof colour in the installed themes (art §8.4). */
 export const ZONE_BAR: Readonly<Record<ZoneLocation, string>> = {
   library: "bg-brand",
   watchtower: "bg-ink",
@@ -21,7 +20,6 @@ export function ZoneStatusText({
   );
 }
 
-/** Concept tags: bordered rectangles, not pastel pills. */
 export function ConceptChips({
   concepts,
   className = "",
@@ -44,7 +42,6 @@ export function ConceptChips({
   );
 }
 
-/** "Incident" level badge: ink text on the accent tint (≥ 4.5:1 in every theme), icon in accent. */
 export function IncidentBadge() {
   return (
     <span className="inline-flex items-center gap-1 rounded-sm bg-accent-tint px-2 py-0.5 text-xs font-semibold text-ink">

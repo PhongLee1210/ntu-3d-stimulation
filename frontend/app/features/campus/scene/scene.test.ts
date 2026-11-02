@@ -104,7 +104,6 @@ const manifests: ThemeManifest[] = themeIds.map((id) =>
 );
 
 const props = readJson(path.resolve(process.cwd(), "public", "models", "props.json")) as PropsJson;
-/** Props tall or wide enough to cast a sun shadow like the trees (art §2.2). */
 const CASTING_PROPS = [
   "gazebo",
   "food-stall",
@@ -129,24 +128,18 @@ function build(
 }
 
 const BAKES: readonly Bake[] = ["clear", "partly", "overcast", "damp", "wet"];
-/** Every look the scene bakes: four phases × five weather bakes (campus v0.4 W4). */
 const LOOKS = TimeOfDaySchema.options.flatMap((phase) =>
   BAKES.map((bake) => [phase, bake] as const),
 );
 
 const TIMES: readonly TimeOfDay[] = ["day", "dusk"];
 
-/**
- * Heights of raised items under 0.03 that stand over the sun-shadow overlay on purpose, like the
- * plaza and the steps above it (art §2.4 item 4): a solid slab, not a ground decal.
- */
-const RAISED = [0.02 /* open-air stage, lowest tier */];
+const RAISED = [0.02];
 const UP = new Vector3(0, 1, 0);
-const LEFT = new Vector3(0, 0, 1); // +z: the left face on screen, towards the sun
-const RIGHT = new Vector3(1, 0, 0); // +x: the right face on screen, in shade
+const LEFT = new Vector3(0, 0, 1);
+const RIGHT = new Vector3(1, 0, 0);
 const luminance = (c: Color) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 
-/** Vertices of a baked geometry whose colour is exactly `color` (emissive parts keep it). */
 function verticesColoured(geometry: BufferGeometry, color: Color): number {
   const attribute = geometry.getAttribute("color");
   let count = 0;
@@ -160,7 +153,6 @@ function verticesColoured(geometry: BufferGeometry, color: Color): number {
   return count;
 }
 
-/** True when a ground point lies inside a triangle of a ground geometry (non-indexed). */
 function inShadow(geometry: BufferGeometry, p: Vec2): boolean {
   const position = geometry.getAttribute("position");
   const corner = (i: number) => ({ x: position.getX(i), z: position.getZ(i) });
@@ -173,7 +165,6 @@ function inShadow(geometry: BufferGeometry, p: Vec2): boolean {
   return false;
 }
 
-/** Every triangle of a non-indexed geometry: outward normal (from the winding), centre, colour. */
 function triangles(geometry: BufferGeometry) {
   const position = geometry.getAttribute("position");
   const colour = geometry.getAttribute("color");
@@ -187,14 +178,12 @@ function triangles(geometry: BufferGeometry) {
 }
 type Triangle = ReturnType<typeof triangles>[number];
 
-/** The wall a triangle faces by its horizontal normal; null for flat ones (roofs, ground). */
 function sideOf(n: Vector3): Face | null {
   if (Math.max(Math.abs(n.x), Math.abs(n.z)) < 0.1) return null;
   if (Math.abs(n.x) > Math.abs(n.z)) return n.x > 0 ? "+x" : "-x";
   return n.z > 0 ? "+z" : "-z";
 }
 
-/** Triangles passing `keep`, counted by the wall they face. */
 function countBySide(geometry: BufferGeometry, keep: (t: Triangle) => boolean) {
   const count: Record<Face, number> = { "+x": 0, "-x": 0, "+z": 0, "-z": 0 };
   for (const t of triangles(geometry)) {
@@ -207,11 +196,6 @@ function countBySide(geometry: BufferGeometry, keep: (t: Triangle) => boolean) {
 const sameColour = (a: Color, b: Color) =>
   Math.abs(a.r - b.r) < 1e-4 && Math.abs(a.g - b.g) < 1e-4 && Math.abs(a.b - b.b) < 1e-4;
 
-/**
- * The four isometric diagonals (orbit-camera §1.1): the camera sits along h(yaw) = (sin yaw,
- * cos yaw) from its look-at point, so 45° is home (+x, +z) and each step of 90° turns the model
- * a quarter round. No browser: a wall is seen when its normal points towards the camera.
- */
 const ISO_YAWS = [45, 135, 225, 315] as const;
 const towardCamera = (yaw: number) => {
   const r = (yaw * Math.PI) / 180;
@@ -224,7 +208,6 @@ const WALLS: Record<Face, Vector3> = {
   "-z": new Vector3(0, 0, -1),
 };
 
-/** Screen position of every vertex, with its world height. */
 function screenVertices(geometry: BufferGeometry): (Screen & { y: number })[] {
   const position = geometry.getAttribute("position");
   return Array.from({ length: position.count }, (_, i) => {
@@ -233,10 +216,6 @@ function screenVertices(geometry: BufferGeometry): (Screen & { y: number })[] {
   });
 }
 
-/**
- * Screen window round the lantern, needle and star of the spire (v0.3 §4.5): nothing raised in
- * the terrain and no tree crown may stand behind them.
- */
 const CROWN_WINDOW = { minX: 4.4, maxX: 6.35, minY: 8.1, maxY: 11.9 } as const;
 const outsideCrown = (b: { minX: number; maxX: number; minY: number; maxY: number }) =>
   b.maxX < CROWN_WINDOW.minX ||
@@ -249,11 +228,6 @@ const crowns = TREE_INSTANCES.map((tree) => ({
   half: 0.8 * tree.scale,
 }));
 
-/**
- * Points inside the tall parts of each landmark (star or clock-tower top, lantern or clock roof,
- * tower body) and the watchtower's top: the camera ray through each must stop on the building
- * (v0.3 §2.5, QA r3), not on the open back-campus ground behind it.
- */
 const TALL: Record<LandmarkArchetype, [number, number, number][]> = {
   "spire-hall": [
     [0, 10, -7.6],
@@ -267,23 +241,16 @@ const TALL: Record<LandmarkArchetype, [number, number, number][]> = {
   ],
 };
 const WATCHTOWER_TOP: [number, number, number] = [10.6, 5.2, -4.8];
-/** On the market's south and east awnings, which hang outside its footprint (QA r4). */
 const AWNINGS: [number, number, number][] = [
   [8.43, 1.41, 5.78],
   [9.0, 1.5, 5.55],
   [11.35, 1.5, 3.9],
 ];
-/** The isometric camera's view direction: every click ray is parallel to it. */
 const VIEW = new Vector3(-1, -1, -1).normalize();
-/** The view direction of a camera turned to `yaw` (camera.ts cameraOffset, reversed). */
 const viewDirection = (yaw: number) => new Vector3(...cameraOffset(yaw)).normalize().negate();
 const DIAGONALS = [45, 135, 225, 315].map((d) => (d * Math.PI) / 180);
 const deg = (d: number) => (d * Math.PI) / 180;
 
-/**
- * Every vertex the overview frames, as (x − PIVOT.x, y, z − PIVOT.z): the static groups and the
- * trees placed by treeMatrix (orbit-camera §1.3).
- */
 function framedPoints(g: CampusGeometry, extra: BufferGeometry[] = []): Float64Array {
   const points: number[] = [];
   const v = new Vector3();
@@ -304,7 +271,6 @@ function framedPoints(g: CampusGeometry, extra: BufferGeometry[] = []): Float64A
   return Float64Array.from(points);
 }
 
-/** Calls `visit(sx, sy)` with each point's screen position relative to PIVOT at `yaw`. */
 function eachAroundPivot(
   points: Float64Array,
   yaw: number,
@@ -322,7 +288,6 @@ function eachAroundPivot(
   }
 }
 
-/** Walks a route like the frame loop: step() at 60 Hz, next waypoint on targetDone. */
 function walkRoute(from: Vec2, route: readonly Vec2[]): Vec2 {
   let position = from;
   for (const target of route) {
@@ -335,7 +300,6 @@ function walkRoute(from: Vec2, route: readonly Vec2[]): Vec2 {
   return position;
 }
 
-/** The click targets as CampusScene groups them: zone buildings tagged, instanced trees included. */
 function statics(g: CampusGeometry, material: Material): Group {
   const group = new Group().add(new Mesh(g.terrain, material), new Mesh(g.landmark, material));
   for (const { id } of SITES) {
@@ -389,7 +353,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
       const right = shade(RIGHT, day);
       expect(luminance(left)).toBeCloseTo(0.8, 2);
       expect(luminance(right)).toBeCloseTo(0.6, 2);
-      // Warm enough to see by day (QA r2): v0.3's grey sides moved only about 2 levels.
       expect(left.r - left.b).toBeGreaterThan(0.1);
       expect(right.b - right.r).toBeGreaterThan(0.08);
     });
@@ -397,12 +360,9 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     it("dims and warms the hour at dusk; without rim, matches the two-light formula", () => {
       const dusk = light(lights.dusk);
       const top = shade(UP, dusk);
-      // The one exception to "top faces show the exact manifest colour" (art §10, dusk).
       expect(luminance(top)).toBeLessThan(0.9);
       expect(top.r).toBeGreaterThan(top.b);
       expect(luminance(shade(RIGHT, dusk))).toBeLessThan(0.5);
-      // The two-light formula written out again here (not three.js's own Lambert path, art
-      // §2.3), at a normal no rim reaches (facing the camera).
       const n = new Vector3(1, 1, 1).normalize();
       const sun = Math.max(0, n.dot(dusk.sun));
       const lambert = dusk.ground.clone().lerp(dusk.sky, 0.5 + 0.5 * n.y);
@@ -415,7 +375,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     it("adds sun rim light only on faces seen edge-on that face the sun", () => {
       const day = light(lights.day);
       const noRim = light({ ...lights.day, rim: 0 });
-      const edgeOn = new Vector3(-1, 0, 1).normalize(); // a column's left silhouette
+      const edgeOn = new Vector3(-1, 0, 1).normalize();
       expect(luminance(shade(edgeOn, day))).toBeGreaterThan(luminance(shade(edgeOn, noRim)));
       const awayFromSun = new Vector3(1, 0, -1).normalize();
       expect(shade(awayFromSun, day).equals(shade(awayFromSun, noRim))).toBe(true);
@@ -426,7 +386,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
 describe.each(manifests.map((m) => [m.id, m] as const))(
   "baked lighting from every side (orbit-camera §6.2), theme %s",
   (_id, manifest) => {
-    // Every look: each preset the schema knows under each weather bake (campus v0.4 W0.7).
     it.each(LOOKS)(
       "keeps the two walls seen from each iso diagonal apart at %s, %s",
       (time, bake) => {
@@ -436,7 +395,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
           const seen = Object.values(WALLS).filter((n) => n.dot(towardCamera(yaw)) > 0);
           expect(seen).toHaveLength(2);
           const [a = 0, b = 0] = seen.map((n) => luminance(shade(n, l)));
-          // Relative to the top face, so dark presets are not asked for daylight contrast.
           expect(Math.abs(a - b), `${yaw}° at ${time}, ${bake}`).toBeGreaterThanOrEqual(0.08 * top);
         }
       },
@@ -484,9 +442,6 @@ describe("derived colours", () => {
   it.each(manifests.map((m) => [m.id, m] as const))(
     "keeps lit parts apart from the faces behind them at both hours, theme %s (QA r6)",
     (_id, manifest) => {
-      // CIE76 ΔE on sRGB-in-linear colours. By day the lit tan reads at 23 to 33; at dusk the
-      // sunlit +z walls baked to 12 (the watchtower's top slot vanished) and the market floor
-      // behind the lanterns to 9 to 20 (pale boxes, not lights).
       const lab = (c: Color) => {
         const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : ((24389 / 27) * t + 16) / 116);
         const x = f((0.4124 * c.r + 0.3576 * c.g + 0.1805 * c.b) / 0.95047);
@@ -543,15 +498,13 @@ describe("zone building looks (N9)", () => {
     const stars = { "thu-vien": { "grounded-citation": 1 as const }, cho: { routing: 3 as const } };
     expect(siteLooks(sites, stars, true)).toEqual({
       library: "lit",
-      watchtower: "open", // open by default (zones.json seed), no star under its id
+      watchtower: "open",
       market: "coming_soon",
     });
-    // Stars stored under the location instead of the zone id do not count.
     expect(siteLooks(sites, { library: { "grounded-citation": 1 } }, true).library).toBe("open");
   });
 
   it("keep every open zone lit while nothing saves stars yet (QA r2)", () => {
-    // No star can be earned until the workbench calls recordStars: dark windows would be a loss.
     expect(siteLooks(sites, {}, false)).toEqual({
       library: "lit",
       watchtower: "lit",
@@ -575,21 +528,16 @@ describe("zone building looks (N9)", () => {
             return count;
           },
         );
-        // Lit parts skip the bake, so they keep the full colour at both hours.
         const at = `${id} at ${time}`;
         expect(comingSoon, at).toBe(0);
-        // Two entrance lamps (a 12-triangle box each); the library also lights its door, a quad
-        // and a half-disc of 8 triangles (QA r2), and the watchtower its door on the west, a quad
-        // (orbit-camera D13). The market hall has no door.
         expect(open, at).toBe({ library: 102, watchtower: 78, market: 72 }[id]);
         expect(lit, at).toBeGreaterThan(open ?? 0);
-        if (id === "library") expect(lit, at).toBeGreaterThan((open ?? 0) + 100); // 13 windows
+        if (id === "library") expect(lit, at).toBeGreaterThan((open ?? 0) + 100);
       }
     }
   });
 
   it("keeps the library's lamps clear of its lit door and the librarian's badge (QA r3)", () => {
-    // The lit door is the sign that a zone is open; lamps in the same tan read as part of it.
     const manifest = manifests[0];
     if (!manifest) throw new Error("Need a theme.");
     const pal = palette(manifest.campus, "day");
@@ -611,9 +559,7 @@ describe("zone building looks (N9)", () => {
       }
       return out;
     };
-    // The door and its arch: the lit parts on the façade plane.
     const door = box(vertices((v, i) => v.x < -9.3 && Math.abs(colour.getX(i) - pal.lit.r) < 1e-6));
-    // The "!" badge: 28 px square (size-7) standing on its anchor.
     const [ax, ay, az] = LABEL_ANCHORS.lan;
     const anchor = toScreen(ax, ay, az);
     const half = 14 / view.zoom;
@@ -640,7 +586,6 @@ describe("zone building looks (N9)", () => {
   });
 });
 
-/** The two walls each "coming soon" scaffold stands outside: axis and wall planes (D12, D14, D16). */
 const SCAFFOLD_WALLS = {
   library: ["z", -5.8, -0.8],
   watchtower: ["z", -5.8, -3.8],
@@ -650,8 +595,6 @@ const SCAFFOLD_WALLS = {
 describe.each(manifests.map((m) => [m.id, m] as const))(
   "four dressed sides (orbit-camera §5.2), theme %s",
   (_id, manifest) => {
-    // A magenta lake makes ~glass the one colour whose green stays under half its red and blue,
-    // through the bake, the "coming soon" grey and the haze of the back buildings.
     const campus = { ...manifest.campus, water: "#ff00ff" };
     const pal = palette(campus, "day");
     const { archetype, colonnades } = campus.landmark;
@@ -676,14 +619,12 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     it("dresses the backs of the clock, the gate and the market (D9, D10, D15)", () => {
       const landmark = buildLandmark(pal, archetype, colonnades);
       if (archetype === "clock-tower") {
-        // Emissive faces keep the plaza colour exactly: one per wall of the clock box.
         const faces = countBySide(landmark, (t) => sameColour(t.colour, pal.plaza));
         for (const side of Object.keys(WALLS) as Face[]) {
           expect(faces[side], `clock ${side}`).toBeGreaterThan(0);
         }
       }
       if (colonnades) {
-        // Iron arches on the back of the gate (z 11.5), apart from the fence behind it.
         const iron = countBySide(
           landmark,
           (t) => t.centre.z < 12 && sameColour(t.colour, baked(pal.iron, t.normal)),
@@ -713,7 +654,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         const [axis, low, high] = SCAFFOLD_WALLS[id as keyof typeof builders];
         const open = buildSite(pal, "open");
         const soon = buildSite(pal, "coming_soon");
-        // Trunk-coloured parts that are not scaffolding (the market's stalls) stand in both.
         const kept = new Set(
           triangles(open)
             .filter((t) => sameColour(t.colour, baked(pal.trunk, t.normal)))
@@ -742,35 +682,12 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
 describe.each(manifests.map((m) => [m.id, m] as const))(
   "scene budget, theme %s",
   (_id, manifest) => {
-    // Measured 14 draw calls (v0.3's 13 plus the sun-shadow overlay). Triangles with the looks
-    // built here (open, coming soon, coming soon): 19,248 (spire-hall) / 16,186 (clock-tower) in
-    // v0.3; N8/N9 drop the unstarred library's shelves (-88) and add foam and the sun-shadow
-    // overlay (campus-scene v0.3 §13.4 has the measured totals). v0.4 dresses all four sides
-    // (orbit-camera §5.2) inside the same groups: by day 20,097 -> 21,413 (spire-hall) and
-    // 17,020 -> 18,268 (clock-tower); 21,585 with every zone lit.
-    // The CC0 props (dressing plan §3) add one draw call and 7,818 triangles (7,914 planned,
-    // less the 384 of the dropped wall rocks, plus the parasols' 288 back faces), the six new
-    // lamps 264 in the terrain and their sun shade 56 in the overlay.
-    // v0.4 people (npc-cast v0.4, integration spec §6): five baked ground discs replace the
-    // librarian's blob (draw calls stay 14 with the statues: +1 merged NPC statues, -1 blob),
-    // then the baked cast swaps the four statue meshes for seven skinned ones (+3; the six
-    // figures are 5,235 triangles with the player's x-ray, cast.test.ts).
-    // Together, measured: 14 draw calls with the statues, 15 once the props arrive, 18 with the
-    // cast too (main's 15 + the cast's 3 extra meshes). Triangles with props and cast, both
-    // themes, both hours, every zone lit at most: 34,422 (spire-hall by day; clock-tower 31,277).
-    // The cast's 5,235 beat its ~1,020 estimate (npc-cast v0.4 §11), hence caps of 18 draw calls
-    // and 34,500 triangles (the measured peak rounded up): under 60% of the brief's 60k and far
-    // inside the 60 FPS rule's < 80 draw calls (art §6.1).
-    // Every look (campus v0.4 W4): weather adds no draw call; overcast drops the shadow overlay.
-    // Visual polish (art §15, 2026-10-09): the contact-darkening overlay adds one draw call
-    // (15 / 16 / 18 / 19) and, with the kerbs, slab bands and mowing stripes, about 570
-    // triangles: peak 34,986 (spire-hall) / 31,865 (clock-tower), hence the cap of 35,500.
     it.each(LOOKS)("stays well inside 40 draw calls and 60k triangles at %s, %s", (time, bake) => {
       if (!CAST) throw new Error("cast.json does not parse");
       for (const lit of [false, true]) {
         const { result, unmount } = build(manifest, time, lit, bake);
         const g = result.current;
-        expect(sceneBudget(g).drawCalls).toBe(15); // statues, until the props and the cast arrive
+        expect(sceneBudget(g).drawCalls).toBe(15);
         const dressing = buildDressing(props, g.palette);
         const statues = sceneBudget(g, null, dressing);
         const cast = sceneBudget(g, CAST, dressing);
@@ -824,7 +741,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         reach = Math.max(reach, x);
       }
       expect(off).toEqual([]);
-      // The watchtower's shadow passes its east wall (x 11.8) by day, and the base edge at dusk.
       expect(reach).toBeGreaterThan(time === "day" ? 12 : BASE.maxX - 1e-3);
       unmount();
     });
@@ -838,7 +754,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         z: z - (sun.z / sun.y) * y,
       });
       const points = [
-        // Crown centres: the round crown's middle, the cypress's widest part.
         ...TREE_INSTANCES.map((tree) =>
           cast(
             `tree (${tree.x}, ${tree.z})`,
@@ -847,7 +762,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
             tree.z,
           ),
         ),
-        // Inside the arch gate's middle block, or the pier gate's lintel.
         cast("gate", 0, 1.5, 12.15),
       ].filter((p) => p.x > BASE.minX && p.x < BASE.maxX && p.z > BASE.minZ && p.z < BASE.maxZ);
       expect(points.length).toBeGreaterThan(20);
@@ -857,8 +771,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it.each(TIMES)("shades the ground behind the bulky props (%s, review r1)", (time) => {
-      // Without it the gazebo, stall, board, palms and parasols looked pasted on beside the
-      // trees. Oracle: the point 0.9 up each copy's baked height, cast along the sun.
       const { result, unmount } = build(manifest, time);
       const { sun } = result.current.palette.light;
       const unshaded = DRESSING.filter((row) => CASTING_PROPS.includes(row.prop)).flatMap((row) => {
@@ -869,28 +781,21 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         for (let i = 1; i < data.position.length; i += 3)
           top = Math.max(top, (data.position[i] ?? 0) / props.q);
         const y = (row.y ?? 0) + 0.9 * top * sy;
-        return (
-          row.at
-            .map(([x, z]) => ({
-              label: `${row.prop} (${x}, ${z})`,
-              x: x - (sun.x / sun.y) * y,
-              z: z - (sun.z / sun.y) * y,
-            }))
-            // A palm's shade at dusk falls off the base, which clips it.
-            .filter((p) => p.x > BASE.minX && p.x < BASE.maxX && p.z > BASE.minZ && p.z < BASE.maxZ)
-            .filter((p) => !inShadow(result.current.shadow, p))
-            .map((p) => p.label)
-        );
+        return row.at
+          .map(([x, z]) => ({
+            label: `${row.prop} (${x}, ${z})`,
+            x: x - (sun.x / sun.y) * y,
+            z: z - (sun.z / sun.y) * y,
+          }))
+          .filter((p) => p.x > BASE.minX && p.x < BASE.maxX && p.z > BASE.minZ && p.z < BASE.maxZ)
+          .filter((p) => !inShadow(result.current.shadow, p))
+          .map((p) => p.label);
       });
       expect(unshaded).toEqual([]);
       unmount();
     });
 
     it.each(TIMES)("darkens exactly the trees a building shades (%s, QA r3)", (time) => {
-      // Lambert trees take no shadow, so the scene darkens those whose crown centre a building
-      // hides from the sun. Oracle: rays from the crown centre (and 0.3 to each side) towards
-      // the sun, against the built campus without trees. A tree whose five rays disagree stands
-      // on a shadow edge and is left out; the casters are simplified hulls.
       const { result, unmount } = build(manifest, time);
       const g = result.current;
       const material = new MeshBasicMaterial({ side: DoubleSide });
@@ -927,8 +832,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it("lays the shadow overlay over every ground layer (QA r2)", () => {
-      // A ground decal at or above SHADOW_Y would bring back light stripes across the shadows.
-      // Raised items under 0.03 that are meant to cover the overlay are listed by height.
       const { result, unmount } = build(manifest);
       const position = result.current.terrain.getAttribute("position");
       const over = new Map<number, string>();
@@ -945,9 +848,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it("casts shadows only from blocks the built campus has", () => {
-      // The casters are simplified copies of the builders' boxes. Every caster corner must sit
-      // within 0.25 (x, z) of a real vertex, and its top within 0.05 of a real vertex inside its
-      // extent, so a building moved or resized without its caster fails here.
       const { result, unmount } = build(manifest);
       const g = result.current;
       const vertices: Vector3[] = [];
@@ -1001,7 +901,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     it("leaves both top HUD corners and the view buttons sky in overview at every yaw", () => {
       const { result, unmount } = build(manifest);
       const dressing = buildDressing(props, result.current.palette);
-      // The props and the four standing NPCs (their statues are as tall as the baked figures).
       const points = framedPoints(result.current, [dressing, result.current.npcs]);
       dressing.dispose();
       const views = [
@@ -1009,10 +908,8 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         [1366, 657],
         [1280, 720],
       ].map(([width = 0, height = 0]) => viewFor(width, height));
-      // A 1° sweep can miss up to 2.4 px of a 0.1° one, so ask for 3 px under the corners.
       const GAP = 3;
       for (const view of views) expect(view.mode).toBe("overview");
-      // The overview centre sits 0.24 below PIVOT (camera.ts desiredCentre).
       const middle = (ORBIT_FRAME.top + ORBIT_FRAME.bottom) / 2;
       const hits = new Set<string>();
       for (let d = 0; d < 360; d += 1) {
@@ -1031,10 +928,8 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
       }
       expect([...hits]).toEqual([]);
       unmount();
-      // A 1° sweep over every vertex, props and NPCs included, for three viewports: slow but exhaustive.
     }, 20_000);
 
-    // Composed for the home view only: from other angles the needle may stand before anything.
     it("keeps the screen behind the spire clear of raised terrain and tree crowns at home", () => {
       const { result, unmount } = build(manifest);
       const vertices = screenVertices(result.current.terrain);
@@ -1100,7 +995,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
           const side = (stop.x - centre.x) * Math.sin(yaw) + (stop.z - centre.z) * Math.cos(yaw);
           expect(side, at).toBeGreaterThan(0);
         }
-        // The watchtower is a zone: a click on it still walks to its door.
         const [x, y, z] = WATCHTOWER_TOP;
         raycaster.set(new Vector3(x, y, z).addScaledVector(direction, -40), direction);
         expect(clickGoal(raycaster, group)).toEqual(siteFor("watchtower").door);
@@ -1119,31 +1013,25 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         const direction = viewDirection(yaw);
         raycaster.set(new Vector3(x, y, z).addScaledVector(direction, -40), direction);
       };
-      // From the west the library's porch beam stands in front of her left side.
       aim(deg(270), NPC_SPOT.x - 0.44, 0.7, NPC_SPOT.z);
       expect(pickNpc(raycaster, group, speakers)).toBeNull();
       expect(clickGoal(raycaster, group)).toEqual(siteFor("library").door);
       aim(deg(270), NPC_SPOT.x, 0.7, NPC_SPOT.z);
       expect(pickNpc(raycaster, group, speakers)).toBe("lan");
-      // Her head counts too (the v0.3 plane at 0.7 missed it).
       aim(HOME_YAW, NPC_SPOT.x, 1.4, NPC_SPOT.z);
       expect(pickNpc(raycaster, group, speakers)).toBe("lan");
-      // Every NPC stands in clear view from home (npc-cast v0.4 §4), feet to head.
       for (const { id, spot } of NPCS) {
         for (const y of [0.2, 0.7, 1.3]) {
           aim(HOME_YAW, spot.x, y, spot.z);
           expect(pickNpc(raycaster, group, SPEAKERS), `${id} at ${y}`).toBe(id);
         }
       }
-      // A click just over the tallest head (statues 1.46, figures 1.31) is not theirs: aim
-      // over the box's far top corner, the highest point the box shows on screen.
       const away = viewDirection(HOME_YAW);
       for (const { id, spot } of SPEAKERS) {
         const [x, z] = [spot.x + 0.35 * Math.sign(away.x), spot.z + 0.35 * Math.sign(away.z)];
         aim(HOME_YAW, x, 1.55, z);
         expect(pickNpc(raycaster, group, SPEAKERS), `over ${id}`).not.toBe(id);
       }
-      // From behind the main building the registrar is hidden: the click is the building's.
       const registrar = NPCS.find(({ id }) => id === "registrar")?.spot ?? SPAWN;
       aim(deg(180), registrar.x, 0.7, registrar.z);
       expect(pickNpc(raycaster, group, SPEAKERS)).toBeNull();
@@ -1166,8 +1054,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
 
     it("builds the three-arch gate only for themes with colonnades", () => {
       const { result, unmount } = build(manifest);
-      // Gate and fence stand in front of the loop road (z > 11.4); the arch gate's attic
-      // reaches y 3.0, the town's pier gateway only 1.58.
       const position = result.current.landmark.getAttribute("position");
       let gateTop = 0;
       for (let i = 0; i < position.count; i += 1) {
@@ -1186,7 +1072,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
   },
 );
 
-/** Heights of the flat terrain decals under y 0.03 (RAISED slabs left out). */
 function flatHeights(geometry: BufferGeometry): number[] {
   const position = geometry.getAttribute("position");
   const heights = new Set<number>();
@@ -1206,13 +1091,10 @@ function flatHeights(geometry: BufferGeometry): number[] {
   return [...heights];
 }
 
-/** Positions are float32: constants compare through this. */
 const f32 = Math.fround;
 
-/** A ground point as a set key (rounded). */
 const at = (x: number, z: number) => `${x.toFixed(4)},${z.toFixed(4)}`;
 
-/** Every vertex position at height `y`, as set keys. */
 function cornersAt(geometry: BufferGeometry, y: number): Set<string> {
   const position = geometry.getAttribute("position");
   const out = new Set<string>();
@@ -1244,20 +1126,15 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         expect(sameColour(c, pal.ao) || sameColour(c, white), `vertex ${i}`).toBe(true);
         if (sameColour(c, pal.ao)) centres.add(at(position.getX(i), position.getZ(i)));
       }
-      // Soft but there: no channel goes black, the darkest factor reads as contact, not shade.
       for (const k of [pal.ao.r, pal.ao.g, pal.ao.b]) expect(k).toBeGreaterThan(0);
       expect(luminance(pal.ao)).toBeLessThanOrEqual(0.85);
-      // Strong enough to see at 1280 px (review r1: 0.35 to white read as nothing), and half-way
-      // to grey: contact blocks sky light, so a dusk blob on a warm path never turns lavender.
       const spread = (k: Color) => Math.max(k.r, k.g, k.b) - Math.min(k.r, k.g, k.b);
       expect(luminance(pal.ao)).toBeCloseTo(0.2 + 0.8 * luminance(pal.shadow), 5);
       expect(spread(pal.ao)).toBeLessThanOrEqual(0.4 * spread(pal.shadow) + 1e-6);
-      // Over every ground layer, under the speakers' discs: a night pool is never darkened.
       const ground = flatHeights(terrain).filter((y) => y !== f32(SPEAKER_DISC_Y));
       expect(Math.max(...ground)).toBeLessThan(AO_Y);
       expect(AO_Y).toBeLessThan(SPEAKER_DISC_Y);
       expect(AO_Y).toBeLessThan(SHADOW_Y);
-      // One blob under each tree, standing prop, lamp and life-size statue.
       const standing = DRESSING.filter((row) => row.kind === "ground" || row.kind === "fence");
       const lamps = lampSpots(colonnades);
       const spots = [
@@ -1293,7 +1170,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
           expect(corners.has(at(x + sx * AO_FRAME, z + sz * AO_FRAME))).toBe(true);
         }
       }
-      // The opaque skirts and tree discs are gone from the terrain (y 0.006 and 0.0125).
       const heights = flatHeights(result.current.terrain);
       expect(heights.filter((y) => y === f32(0.006) || y === f32(0.0125))).toEqual([]);
       unmount();
@@ -1319,7 +1195,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
       }
       const clear = palette(manifest.campus, "day", "clear").kerb;
       expect(luminance(palette(manifest.campus, "day", "wet").kerb)).toBeLessThan(luminance(clear));
-      // Under every path (0.011, 0.012), over the park lawn (0.010).
       expect(KERB_Y).toBeGreaterThan(0.01);
       expect(KERB_Y).toBeLessThan(0.011);
     });
@@ -1344,7 +1219,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
             max.max(p);
           }
         }
-        // The −x side of the slab: no lake there, so each band shows its own colour.
         if (!v.every((p) => p.x === f32(BASE.minX) && p.y <= 0 && p.y >= f32(bottom))) continue;
         const y = v.reduce((sum, p) => sum + p.y, 0) / 3;
         const lit = band(y).clone().multiply(west);
@@ -1355,11 +1229,9 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
           checked += 1;
         }
       }
-      expect(checked).toBe(3 * 2 * 3); // two triangles per band
-      // The plinth still sets the outline under the slab: the blueprint draws the same.
+      expect(checked).toBe(3 * 2 * 3);
       const outline = [BASE.minX - 0.25, BASE.maxX + 0.25, BASE.minZ - 0.25, BASE.maxZ + 0.25];
       [min.x, max.x, min.z, max.z].forEach((v, i) => expect(v).toBeCloseTo(outline[i] ?? 0, 5));
-      // Water in the cut sides, spanning exactly the lake on each.
       const r5 = (v: number) => Math.round(v * 1e5) / 1e5;
       const span = (n: Vector3, axis: 0 | 2) => {
         const deep = pal.deep.clone().multiply(shade(n, pal.light));
@@ -1428,9 +1300,8 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         if (v.every((p) => Math.abs(p.y) < 1e-6) && sameColour(c, ground)) lawn += 1;
       }
       expect(strips).toBe(12 * 2);
-      expect(lawn).toBe(2); // the slab's top face shows between the strips
+      expect(lawn).toBe(2);
       expect(MOW_WIDTH).toBe(1.4);
-      // Under every other ground layer.
       const others = flatHeights(terrain).filter((y) => y !== f32(MOW_Y));
       expect(Math.min(...others)).toBeGreaterThan(f32(MOW_Y));
       unmount();
@@ -1441,7 +1312,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
       const dressing = buildDressing(props, result.current.palette);
       const position = dressing.getAttribute("position");
       const colour = dressing.getAttribute("color");
-      // The bench by the gate at (−11, 9.95): one copy, one part.
       const near = (i: number) =>
         Math.abs(position.getX(i) + 11) < 1 && Math.abs(position.getZ(i) - 9.95) < 0.6;
       let minY = Infinity;
@@ -1502,7 +1372,6 @@ describe("switching theme", () => {
     rerender({ market: "open", time: "day" });
     const opened = result.current;
     expect(opened.market).not.toBe(before.market);
-    // An opened zone drops its scaffolding (posts and boards east of the hall, under its awning).
     const scaffolded = (geometry: BufferGeometry) => {
       const position = geometry.getAttribute("position");
       for (let i = 0; i < position.count; i += 1) {
@@ -1514,7 +1383,6 @@ describe("switching theme", () => {
     expect(scaffolded(opened.market)).toBe(false);
     expect(opened.library).toBe(before.library);
     expect(opened.terrain).toBe(before.terrain);
-    // A new hour re-bakes every group.
     rerender({ market: "open", time: "dusk" });
     expect(result.current.terrain).not.toBe(opened.terrain);
     expect(result.current.library).not.toBe(opened.library);
@@ -1599,7 +1467,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
       for (const bake of ["clear", "wet"] as const) {
         const pal = palette(campus, "night", bake);
         const top = shade(UP, pal.light);
-        // The figure's sunlit side, lifted, over the pool of light on the path under it.
         const pool = pal.path.clone().multiply(top).add(pal.glow);
         const lambert = shade(LEFT, pal.light).multiplyScalar(pal.figureLift);
         for (const [who, colour] of [
@@ -1623,7 +1490,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         { initialProps: { time: "day" as TimeOfDay, bake: "wet" as Bake } },
       );
       const rain = result.current;
-      // Rain → thunderstorm and cloudy → fog share a bake: the same geometry, no rebuild.
       rerender({ time: "day", bake: "wet" });
       expect(result.current.terrain).toBe(rain.terrain);
       rerender({ time: "night", bake: "overcast" });

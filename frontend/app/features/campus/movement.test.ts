@@ -63,13 +63,13 @@ describe("step", () => {
     expect(first.position.x).toBeCloseTo(WALK_SPEED * 0.1);
 
     const arrived = step({ x: 0.95, z: 0 }, { keys: [], target }, 0.1, OPEN_FIELD, BOUNDS);
-    expect(arrived.position).toEqual(target); // snapped, so a next route leg starts on target
+    expect(arrived.position).toEqual(target);
     expect(arrived.targetDone).toBe(true);
   });
 
   it("does not snap onto a target inside an obstacle", () => {
     const wall: Box = { x: 1.5, z: 0, halfX: 0.5, halfZ: 5 };
-    const target = { x: 0.7, z: 0 }; // 0.3 from the wall: blocked for the player's radius
+    const target = { x: 0.7, z: 0 };
     const arrived = step({ x: 0.64, z: 0 }, { keys: [], target }, 0.1, [wall], BOUNDS);
     expect(arrived.position).toEqual({ x: 0.64, z: 0 });
     expect(arrived.targetDone).toBe(true);
@@ -107,7 +107,6 @@ describe("step", () => {
 
   it("gives up a target inside a wall at the first wall either axis meets (QA r4)", () => {
     const wall: Box = { x: 1, z: 0, halfX: 0.5, halfZ: 5 };
-    // x runs into the wall, z is free: a free target slides on, a blocked one ends here.
     const blocked = step(
       { x: 0.1, z: 0 },
       { keys: [], target: { x: 1, z: 3 } },

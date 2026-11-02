@@ -14,7 +14,6 @@ test("landing page loads without any three.js or scene chunk", async ({ page, co
   const forbidden = new Set([...bundleReport.threeChunks, ...bundleReport.sceneChunks]);
   const loaded = requested.filter((pathname) => forbidden.has(pathname.replace(/^\//, "")));
   expect(loaded).toEqual([]);
-  // Vietnamese text must come from the vietnamese subset, not the 72 kB latin-ext one.
   expect(requested.filter((pathname) => pathname.includes("latin-ext"))).toEqual([]);
   expect(consoleErrors).toEqual([]);
 });

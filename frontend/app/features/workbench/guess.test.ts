@@ -24,7 +24,6 @@ interface Grade {
   docs?: number;
 }
 
-/** A finished run over CASES with these grades, optional pack facts and stars. */
 function run(grades: Record<string, Grade>, s2 = true) {
   const frames: SseFrame[] = [frame(1, "run.started", { cases: CASES, ingestion: [] })];
   let seq = 2;
@@ -108,14 +107,12 @@ describe("guess slip", () => {
       "lib-l1-h01": { passed: false, criteria: { ...NORMAL_OK, cited: false } },
       "lib-l1-t01": { passed: false, criteria: { refusal: false }, labels: ["cite_unknown"] },
     });
-    // #3 = h01, #4 = h02, #5 = t01. The player says #3 and #4 fail.
     const grade = gradeSlip({ passed: 4, failing: [3, 4], bets: {} }, view);
     expect(grade?.count).toEqual({ guess: 4, actual: 3, total: 5 });
-    // Samples have no bet: no prediction on them. Unpicked others are predicted to pass.
     expect(grade?.predictions.map((p) => [p.c.n, p.pass, p.right])).toEqual([
-      [3, false, true], // hit
-      [4, false, false], // miss: it passed
-      [5, true, false], // unexpected failure
+      [3, false, true],
+      [4, false, false],
+      [5, true, false],
     ]);
     expect(grade?.surprises).toEqual([]);
   });
@@ -137,8 +134,8 @@ describe("guess slip", () => {
         passed: null,
         failing: [],
         bets: {
-          "lib-l1-v01": { pass: true, confidence: "high" }, // sure and wrong: surprise
-          "lib-l1-v02": { pass: true, confidence: "medium" }, // wrong, not sure
+          "lib-l1-v01": { pass: true, confidence: "high" },
+          "lib-l1-v02": { pass: true, confidence: "medium" },
         },
       },
       view,
@@ -163,17 +160,10 @@ describe("guess slip", () => {
     const grade = gradeSlip({ passed: 5, failing: [3], bets: {} }, view);
     expect(grade?.unfinished).toBe(1);
     expect(grade?.predictions.some((p) => p.c.n === 3)).toBe(false);
-    // ...including out of the count: a case the daily cap never ran cannot have passed, so
-    // counting it in the denominator charges the player for the server's outage
-    // (daily-shift §3.3 exempts such a run from counting at all).
     expect(grade?.count).toEqual({ guess: 5, actual: 4, total: 4 });
   });
 
   it("counts only the cases that count towards the stars", () => {
-    // §8.2 words the header "{normal + trap} câu tính sao" precisely so the slip's denominator
-    // and the header cannot disagree: at L3 the header says 12 while the run has 13 cases, the
-    // extra one being the info case that no star reads. A graded info case is still shown, it
-    // just does not move the count.
     const view = run({ "lib-l1-t01": { passed: true, counted: false } });
     const grade = gradeSlip({ passed: 4, failing: [], bets: {} }, view);
     expect(grade?.count).toEqual({ guess: 4, actual: 4, total: 4 });
@@ -217,7 +207,6 @@ describe("whyCase (L1 §11 reason menu)", () => {
     expect(whyCase(trap)).toMatchObject({ why: "trap", c: { n: 5 } });
     expect(whyCase(run({}, false))).toEqual({ why: "budget", c: null });
     expect(whyCase(run({}))).toBeNull();
-    // A failure with passages and a citation is none of the menu's situations.
     expect(whyCase(run({ "lib-l1-h01": { passed: false, docs: 600 } }))).toBeNull();
   });
 

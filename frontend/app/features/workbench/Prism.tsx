@@ -6,14 +6,6 @@ import { fmt } from "./copy";
 type Slot = 0 | 1 | 2;
 const SLOTS: readonly Slot[] = [0, 1, 2];
 
-/**
- * Lăng kính: the level's prompt cards as a deck, and the lens's three slots they go in. A card
- * pressed goes into the first empty slot and comes back out when pressed again; a card can also
- * be dragged onto a slot, which moves it if it sat in another. The words on a card are the words
- * the brain is told, so they are on the card, not behind a menu.
- *
- * Pressing is the way in for every hand (touch, keyboard, reader); the drag is a shortcut on top.
- */
 export function Prism({
   env,
   bench,
@@ -67,8 +59,6 @@ export function Prism({
                   onClick={() => onChange(setCard(bench, at, null))}
                   className="flex h-24 w-full min-w-0 flex-col items-start gap-1 rounded-md border-2 border-brand bg-brand-tint p-2 text-left disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {/* Named by its own words plus hidden ones, never an aria-label over them:
-                      a voice user says what they see on the card (WCAG 2.5.3). */}
                   <span className="sr-only">{`Khe ${at + 1}: thẻ `}</span>
                   <span className="font-mono text-sm font-bold">{key}</span>{" "}
                   <span className="line-clamp-3 text-xs">{env.level.prompt_cards[key]}</span>
@@ -89,7 +79,6 @@ export function Prism({
         })}
       </ol>
 
-      {/* Said when it bites: a deck that went grey with no word of why reads as broken. */}
       <p data-lens-help={full ? "full" : "open"} className="mt-3 text-xs text-fg-muted">
         {full
           ? "Ba khe đã đầy: bấm một khe để rút thẻ ra, rồi cắm thẻ khác."

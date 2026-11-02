@@ -5,7 +5,6 @@ import { DPR_PROBE_AFTER, DPR_WINDOW, dprGuard, stepDpr } from "./useHubFrame";
 const SLOW = 0.03;
 const FAST = 1 / 60;
 
-/** Runs `frames` busy frames (the first continuing a busy run) from `t`; returns the dpr. */
 function run(
   guard: ReturnType<typeof dprGuard>,
   dpr: number,
@@ -23,7 +22,6 @@ function run(
   return current;
 }
 
-/** The first busy frame after an idle spell. */
 const wake = (guard: ReturnType<typeof dprGuard>, dpr: number, now: number) =>
   stepDpr(guard, { busy: true, wasBusy: false, delta: 5, now, dpr, initialDpr: 2 });
 
@@ -49,10 +47,8 @@ describe("stepDpr (adaptive pixel ratio, art §6.1)", () => {
     const guard = dprGuard();
     expect(run(guard, 2, 0, DPR_WINDOW, SLOW)).toBe(1.5);
     const down = DPR_WINDOW * SLOW;
-    // Too soon, or mid-interaction: no probe.
     expect(wake(guard, 1.5, down + 1)).toBeNull();
     expect(run(guard, 1.5, down + DPR_PROBE_AFTER, 3, FAST)).toBe(1.5);
-    // A new interaction once the spell is over: one level up, never above initialDpr.
     expect(wake(guard, 1.5, down + DPR_PROBE_AFTER + 1)).toBe(2);
     const low = dprGuard();
     run(low, 1.5, 0, DPR_WINDOW, SLOW);
@@ -68,7 +64,6 @@ describe("stepDpr (adaptive pixel ratio, art §6.1)", () => {
     expect(run(guard, 2, 100, DPR_WINDOW, SLOW)).toBe(1.5);
     expect(guard.latched).toBe(true);
     expect(wake(guard, 1.5, 1000)).toBeNull();
-    // The step-down itself still works while latched.
     expect(run(guard, 1.5, 1000, DPR_WINDOW, SLOW)).toBe(1);
   });
 

@@ -35,7 +35,6 @@ describe("describePostError", () => {
     );
     expect(error).toMatchObject({ title: "Chưa mở ca được", issues: null, retry: false });
     expect(error.lines).toEqual(["Máy chủ đang gặp sự cố. Thử lại sau ít phút."]);
-    // The shape the local backend answers for a malformed Idempotency-Key (2026-10-08).
     const local = describePostError(
       422,
       { detail: "Yêu cầu không hợp lệ.", fields: ["header.idempotency-key"] },
@@ -45,7 +44,6 @@ describe("describePostError", () => {
   });
 
   it("429 as the server sends it: its detail, then the wait from Retry-After", () => {
-    // backend runs.py: RunBusyError.message_vi + Retry-After = RUN_DEADLINE_S (90 s).
     const detail = "Máy chủ miễn phí chạy một lượt mỗi lúc và đang bận.";
     const error = describePostError(429, { detail }, headers({ "Retry-After": "90" }), NOW);
     expect(error.title).toBe("Máy chủ đang bận");
@@ -77,12 +75,10 @@ describe("describePostError", () => {
     );
     expect(date.lines).toContain("Bạn có thể thử lại sau khoảng 2 phút.");
     const minutes = describePostError(429, null, headers({ "Retry-After": "120" }));
-    // No detail but a time: one plain line, then the time (no "sau ít phút" next to it).
     expect(minutes.lines).toEqual([
       "Đang có nhiều lượt chạy.",
       "Bạn có thể thử lại sau khoảng 2 phút.",
     ]);
-    // A daily quota is hours away: hours from 90 minutes on.
     const hours = describePostError(429, null, headers({ "Retry-After": String(5 * 3600) }));
     expect(hours.lines).toContain("Bạn có thể thử lại sau khoảng 5 giờ.");
     const half = describePostError(429, null, headers({ "Retry-After": String(90 * 60) }));
@@ -132,7 +128,6 @@ describe("describePostError", () => {
       const error = describePostError(status, { detail: "Chỉ nhận JSON." }, headers());
       expect(error.title).toBe("Chưa mở ca được");
       expect(error.lines).toEqual(["Máy chủ đang gặp sự cố. Thử lại sau ít phút."]);
-      // A gateway error may hide a run the server did start: the same key gets that run back.
       expect(error.retry).toBe(status !== 415);
     }
   });
@@ -238,7 +233,6 @@ describe("postRun carries the run's scope (N2)", () => {
 });
 
 describe("loadLevelPage against the server's block list", () => {
-  /** The blocks the server lists, minus the unreleased ones it hides (registry.UNRELEASED). */
   function stubServer(hidden: readonly string[]) {
     const { blocks } = blocksJson() as { blocks: { type: string }[] };
     vi.stubGlobal("fetch", (url: string) => {

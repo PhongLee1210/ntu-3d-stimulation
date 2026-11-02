@@ -14,7 +14,6 @@ const fresh = sceneLoad.getState();
 const enter = (url = "http://localhost/play") =>
   clientLoader({ request: new Request(url) } as Parameters<typeof clientLoader>[0]);
 
-/** The first 3D frame's viewBox, from the camera maths at the store's yaw (useHubFrame). */
 function firstFrame(width: number, height: number, search: string) {
   const yaw = hubStore.getState().view.yaw;
   const view = viewFor(width, height);
@@ -40,7 +39,6 @@ describe("entering /play with the view turned (orbit-camera §3, loader handover
     view.to = null;
     expect(firstFrame(1280, 800, "")).not.toBe(blueprintViewBox(1280, 800, entryFocus("")));
 
-    // To a zone page and back: the scene unmounts, the next entry is a new one.
     sceneMounted(false);
     enter("http://localhost/play?at=library");
     expect(hubStore.getState().view.yaw).toBe(HOME_YAW);

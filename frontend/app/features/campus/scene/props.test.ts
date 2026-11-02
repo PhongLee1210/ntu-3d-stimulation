@@ -11,8 +11,6 @@ const FILE = path.resolve(process.cwd(), "public", "models", "props.json");
 const text = readFileSync(FILE, "utf8");
 const json = JSON.parse(text) as PropsJson;
 
-// [triangles, plan scale, plan height] per prop: triangle counts are fixed by the baker, scale and
-// height come from the dressing placement plan (height = baked height × scale, plan rounds to cm).
 const PROPS: Record<string, [number, number, number | null]> = {
   "bush-large": [60, 2.2, 0.53],
   bush: [32, 1.6, 0.38],
@@ -26,7 +24,7 @@ const PROPS: Record<string, [number, number, number | null]> = {
   greens: [84, 1.1, 0.75],
   palm: [186, 1.5, 2.27],
   "palm-short": [190, 1.6, 1.7],
-  cliff: [32, 0.55, null], // non-uniform scale on a cliff face; no target height in the plan
+  cliff: [32, 0.55, null],
   "parasol-table": [96, 2.5, 1.13],
   bench: [276, 2.0, 0.38],
   "food-stall": [1132, 1.3, 1.35],
@@ -122,7 +120,7 @@ describe("props decoding", () => {
 
     geometry.computeBoundingBox();
     const box = geometry.boundingBox ?? new Box3();
-    expect(box.min.y).toBe(0); // foot on the ground
+    expect(box.min.y).toBe(0);
     if (height !== null)
       expect(Math.abs((box.max.y - box.min.y) * scale - height)).toBeLessThan(0.015);
   });

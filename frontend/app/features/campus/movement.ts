@@ -2,13 +2,9 @@ import { HOME_YAW } from "./camera";
 import type { Box, Vec2 } from "./layout";
 
 export const PLAYER_RADIUS = 0.35;
-export const WALK_SPEED = 4.2; // world units per second
+export const WALK_SPEED = 4.2;
 const ARRIVE_DISTANCE = 0.08;
 
-/**
- * Key directions along the screen axes (orbit-camera §2.5). At the home view "up" on screen is
- * world (-1, -1)/√2; keyboardDirection turns them with the view.
- */
 const KEY_DIRECTIONS: Readonly<Record<string, { right: number; up: number }>> = {
   ArrowUp: { right: 0, up: 1 },
   KeyW: { right: 0, up: 1 },
@@ -24,10 +20,6 @@ export function isMovementKey(code: string): boolean {
   return code in KEY_DIRECTIONS;
 }
 
-/**
- * Unit ground direction from the held keys for a camera at `yaw`, or null when they cancel out
- * or none are held: right·R(yaw) + up·(−h(yaw)), with R = (cos, −sin) and h = (sin, cos).
- */
 export function keyboardDirection(held: Iterable<string>, yaw = HOME_YAW): Vec2 | null {
   let right = 0;
   let up = 0;
@@ -65,24 +57,13 @@ export function isBlocked(point: Vec2, obstacles: readonly Box[], b: Bounds): bo
 
 export interface StepResult {
   position: Vec2;
-  /** Yaw in radians for the walking direction; unchanged when standing still. */
   heading: number | null;
   moving: boolean;
-  /**
-   * True when a click/tap target has been reached or cannot be reached any further. A target
-   * inside an obstacle or off the walkable ground is given up at the first wall either axis
-   * meets, so the player does not crawl along it (QA r4).
-   */
   targetDone: boolean;
 }
 
-/**
- * Advance the player by one frame. Keyboard input wins over a pending target. Movement is
- * resolved per axis so the player slides along walls instead of sticking to them.
- */
 export function step(
   position: Vec2,
-  /** `yaw`: the view's azimuth the keys walk along (camera.ts), home when left out. */
   input: { keys: Iterable<string>; target: Vec2 | null; yaw?: number },
   dt: number,
   obstacles: readonly Box[],
@@ -97,7 +78,6 @@ export function step(
     const dz = input.target.z - position.z;
     const distance = Math.hypot(dx, dz);
     if (distance <= ARRIVE_DISTANCE) {
-      // Snap onto a free target, so the next route leg starts on the line routeTo checked.
       const end = isBlocked(input.target, obstacles, bounds) ? position : { ...input.target };
       return { position: end, heading: null, moving: false, targetDone: true };
     }
@@ -118,7 +98,6 @@ export function step(
 
   const moved = Math.hypot(next.x - position.x, next.z - position.z);
   if (moved < 1e-6) {
-    // Fully blocked: abandon a click target so the player does not keep pushing a wall.
     return { position, heading: null, moving: false, targetDone: input.target !== null };
   }
   return {
@@ -129,7 +108,6 @@ export function step(
   };
 }
 
-/** The interaction point closest to `position` within `radius`, if any. */
 export function nearestWithin<T extends { door: Vec2 }>(
   position: Vec2,
   sites: readonly T[],

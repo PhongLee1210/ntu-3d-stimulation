@@ -5,8 +5,6 @@ import { EMPTY_SLIP, W1_ATTACKS, type Slip } from "./guess";
 import { GuessSlip, SlipResult } from "./GuessSlip";
 import { levelFile, parseSse, readText, replay, testEnv } from "./test-fixtures";
 
-/** The W1 questions on the guess slip (watchtower.md §3.6), drawn and graded. */
-
 afterEach(cleanup);
 
 const W1 = "direct-injection";
@@ -51,8 +49,6 @@ describe("the W1 slip", () => {
   });
 
   it("tells a right guess from a wrong one after the run, from the run's own facts", () => {
-    // In the reference run the net stops one attack alone (the admin role-play); the dog and the
-    // bell take the rest. It stops no customer.
     const slip: Slip = { ...EMPTY_SLIP, asks: { net_catches: 3, blocks_customer: 0 } };
     render(<SlipResult slip={slip} run={run()} levelId={W1} />);
     const net = document.querySelector('[data-ask-result="net_catches"]');

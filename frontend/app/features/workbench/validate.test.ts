@@ -12,13 +12,11 @@ import {
 import { LEVEL_IDS, levelFile, testEnv } from "./test-fixtures";
 import { fixFor, validateGraph } from "./validate";
 
-// Messages are verbatim from backend engine/validator.py; checked against the real validator
-// (workbench-v0.1 §11.4 step 3).
 const l3 = testEnv("article-number-lookup");
 const base = (): Bench => {
   const bench = starterBench(l3);
   if (!bench) throw new Error("L3 starter is not drawable");
-  return bench; // vs top_k 3; bm, fu, rr detached
+  return bench;
 };
 const issues = (env: Env, bench: Bench) =>
   validateGraph(env, graphFromBench(env, bench)).map(
@@ -121,7 +119,6 @@ describe("validateGraph", () => {
         param: "top_k",
       },
     ]);
-    // Móc kéo already at its limit: the magnifier itself keeps fewer.
     const wide = setParam(
       l3,
       setParam(l3, lens, "vector_search", "top_k", 5),
@@ -149,22 +146,18 @@ describe("validateGraph", () => {
       const graph = graphFromBench(l3, bench);
       return validateGraph(l3, graph).map((issue) => fixFor(l3, graph, issue));
     };
-    // Funnel with one list: attach the missing drawer (or detach the funnel).
     expect(fixes(setAttached(base(), "fusion", true))).toEqual([
       { hint: "Gắn thêm Tủ ngăn kéo hoặc tháo Phễu.", slot: "bm25_search" },
     ]);
-    // Two lists straight into the magnifier: attach the funnel.
     let bench = setAttached(setAttached(base(), "bm25_search", true), "rerank", true);
     expect(fixes(bench)).toEqual([
       { hint: "Gắn Phễu để gộp hai danh sách, hoặc tháo một khe tìm.", slot: "fusion" },
-      // The no-op note (info) gets a next step too: fetch wider first.
       {
         hint: "Tăng Móc kéo của Vòm Sao (tối đa 5) để Kính lúp có đoạn để chọn.",
         slot: "vector_search",
         param: "top_k",
       },
     ]);
-    // Magnifier keeps more than was fetched: its own knob.
     bench = setParam(l3, setAttached(base(), "rerank", true), "rerank", "top_n", 5);
     expect(fixes(bench)).toEqual([
       {
@@ -173,7 +166,6 @@ describe("validateGraph", () => {
         param: "top_n",
       },
     ]);
-    // ... named after the block right in front of it: the funnel's own knob ...
     bench = setAttached(setAttached(base(), "bm25_search", true), "fusion", true);
     bench = setParam(l3, setAttached(bench, "rerank", true), "fusion", "top_k", 2);
     expect(fixes(setParam(l3, bench, "rerank", "top_n", 3))).toEqual([
@@ -183,7 +175,6 @@ describe("validateGraph", () => {
         param: "top_n",
       },
     ]);
-    // ... or the drawer's hook when keyword search is the only list.
     bench = setAttached(setAttached(base(), "vector_search", false), "bm25_search", true);
     bench = setParam(l3, setAttached(bench, "rerank", true), "bm25_search", "top_k", 2);
     expect(fixes(setParam(l3, bench, "rerank", "top_n", 3))).toEqual([
@@ -193,11 +184,9 @@ describe("validateGraph", () => {
         param: "top_n",
       },
     ]);
-    // Nothing plugged in: attach a search.
     expect(fixes(setAttached(setAttached(base(), "vector_search", false), "rerank", true))).toEqual(
       [{ hint: "Gắn Vòm Sao hoặc Tủ ngăn kéo.", slot: "vector_search" }],
     );
-    // Seesaw with one list: G02 then G06, both with a way out.
     bench = setParam(l3, setAttached(base(), "fusion", true), "fusion", "method", "alpha");
     expect(fixes(bench)).toEqual([
       { hint: "Gắn thêm Tủ ngăn kéo hoặc tháo Bập bênh.", slot: "bm25_search" },

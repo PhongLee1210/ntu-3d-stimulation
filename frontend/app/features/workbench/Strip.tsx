@@ -4,23 +4,9 @@ import { STRIP_VI, variantVi } from "./copy";
 import { cutSentence, type ArticleStrip } from "./vizData";
 import { Viz } from "./Viz";
 
-/**
- * N22: one article as the current index variant really cut it, with the sentence a cut severed
- * in red (L2 §5 "Xem trước tất định").
- *
- * `Blade` draws the whole corpus at its average and needs a run to exist; this draws one
- * article at its truth and needs nothing but the static data N21 shipped -- so it answers "what
- * does Lược dao actually do to Điều 12" before the player has spent a single AI call.
- *
- * A piece is what lies between two cuts, never "a chunk that overlaps the article": with
- * overlap on, a chunk can lap an article's tail without cutting it, and counting those claimed
- * "2 đoạn" for an article the blade left whole.
- */
 export function Strip({ strip, variant }: { strip: ArticleStrip; variant: string }): ReactElement {
   const { dieu, start, end, cuts, inForce } = strip;
   const span = end - start;
-  // The article's own edges plus every cut inside it: n cuts make n+1 pieces, always. Each
-  // piece lies wholly within the article, so nothing needs clamping to the bar it is drawn in.
   const edges = [start, ...cuts, end];
   const pieces = edges.slice(0, -1).map((from, index) => {
     const to = edges[index + 1] ?? end;
@@ -29,7 +15,6 @@ export function Strip({ strip, variant }: { strip: ArticleStrip; variant: string
       to,
       left: ((from - start) / span) * 100,
       width: ((to - from) / span) * 100,
-      // The cut at this piece's end -- unless the piece ends where the article does.
       severed: to === end ? null : cutSentence(strip.text, start, to),
     };
   });
@@ -101,9 +86,6 @@ export function Strip({ strip, variant }: { strip: ArticleStrip; variant: string
       <p className="mt-1 max-w-prose text-sm tabular-nums">
         {STRIP_VI.pieces(dieu, pieces.length)}
       </p>
-      {/* L2's corpus holds a superseded document beside the one in force, and their Điều
-          numbers repeat. A strip of the stale document that does not say so is the stale_doc
-          trap drawn as if it were the answer. */}
       {!inForce && (
         <p className="mt-1 max-w-prose text-sm font-semibold text-warning">{STRIP_VI.stale}</p>
       )}

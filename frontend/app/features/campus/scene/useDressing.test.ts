@@ -42,7 +42,6 @@ describe("fetchProps", () => {
   });
 });
 
-/** One placed copy per entry, plus the back faces of the double-sided parasol (§2 B). */
 const PLANNED = DRESSING.reduce((sum, row) => {
   const data = json.props[row.prop];
   return sum + ((data?.index.length ?? 0) / 3) * row.at.length * (data?.doubleSided ? 2 : 1);
@@ -52,8 +51,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))("dressing mesh, theme %s
   it.each(["day", "dusk"] as const)("bakes one position + colour geometry at %s", (time) => {
     const pal = palette(m.campus, time);
     const geometry = buildDressing(json, pal);
-    // 7,914 planned triangles (§3) - the 384 of the dropped wall rocks + 288 back faces of the
-    // three parasols.
     expect(PLANNED).toBe(7818);
     expect(triangleCount(geometry)).toBe(PLANNED);
     expect(Object.keys(geometry.attributes).sort()).toEqual(["color", "position"]);
@@ -73,7 +70,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))("dressing mesh, theme %s
     const c = new Color();
     let hits = 0;
     for (let i = 0; i < position.count; i += 1) {
-      // The top of a fence-row bush: inside the front strip, highest band of the shrub.
       if (position.getZ(i) < 11.4 || position.getZ(i) > 12.3 || position.getY(i) < 0.5) continue;
       c.fromBufferAttribute(color, i);
       if (Math.abs(c.g - lit.g) < 0.02 && Math.abs(c.r - lit.r) < 0.02) hits += 1;
@@ -94,8 +90,6 @@ describe.each(manifests.map((m) => [m.id, m] as const))("dressing mesh, theme %s
       worst = Math.min(worst, reach - (Math.hypot(x, z - zc) + Math.SQRT2 * Math.max(0, y)));
       if (y < -0.01) {
         below += 1;
-        // Only the dock goes below the ground: its posts and shore end, hidden in the slab and
-        // its plate (down to -0.8), within the dock's half length (1.34) of the lake.
         const hidden = inLake(x, z, 1.4) && y > -0.8 && x < BASE.maxX && z < BASE.maxZ;
         expect(hidden, `${x}, ${y}, ${z}`).toBe(true);
       }
@@ -116,8 +110,6 @@ it("re-bakes, never repositions, across themes", () => {
 });
 
 it("gives no props, never a throw, when props.json does not match the placements", () => {
-  // Deploy or cache skew: a schema-valid file without a placed prop, or with a renamed material.
-  // A throw would reach SceneBoundary and fail the whole campus for the session.
   const [first] = manifests;
   const bench = json.props.bench;
   if (!first || !bench) throw new Error("Need a theme and the bench.");

@@ -32,7 +32,6 @@ const slot = (n: number) => {
   return found;
 };
 
-/** A drop with the card's key on it, as a real drag carries it. */
 function dropOn(target: HTMLElement, key: string) {
   const data = new Map([["text/plain", key]]);
   const dataTransfer = { getData: (type: string) => data.get(type) ?? "", dropEffect: "move" };

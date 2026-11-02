@@ -25,7 +25,6 @@ const catalog = {
   ),
 };
 
-// The same seed the backend serves.
 const zones = v.parse(
   ZoneContentSchema,
   read("..", "backend", "src", "vgame", "content", "data", "zones.json"),
@@ -37,7 +36,6 @@ const zone = (id: string): Zone => {
 };
 
 function renderPage(data: ZonePageData, onRetry = vi.fn()) {
-  // A data router: the page frame reads the navigation and revalidation state.
   const router = createMemoryRouter([
     { path: "*", element: <ZonePage data={data} onRetry={onRetry} /> },
   ]);

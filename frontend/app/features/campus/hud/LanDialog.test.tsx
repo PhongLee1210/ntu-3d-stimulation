@@ -24,7 +24,6 @@ function show(opening: boolean, onTeach = vi.fn(), onEnter = vi.fn()) {
 }
 
 beforeEach(() => {
-  // jsdom has neither a modal <dialog> nor ResizeObserver.
   Object.assign(HTMLDialogElement.prototype, {
     showModal(this: HTMLDialogElement) {
       this.open = true;

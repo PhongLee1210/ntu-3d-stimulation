@@ -1,5 +1,3 @@
-// Test-only helpers (vitest and Playwright): the API payloads captured in e2e/data and the level
-// files of the backend (read-only). Never imported by app code.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -19,7 +17,6 @@ import {
   type Graph,
 } from "./schema";
 
-// vitest and Playwright both run from frontend/.
 const FRONTEND = process.cwd();
 const readJson = (...parts: string[]): unknown =>
   JSON.parse(readFileSync(path.resolve(FRONTEND, ...parts), "utf8"));
@@ -27,12 +24,9 @@ export const readText = (...parts: string[]) =>
   readFileSync(path.resolve(FRONTEND, ...parts), "utf8");
 
 export const LEVEL_IDS = ["grounded-citation", "chunk-tuning", "article-number-lookup"] as const;
-/** Watchtower levels: the desk, not the index (watchtower.md §3); kept apart from LEVEL_IDS,
- * whose tests are about retrieval. */
 export const WATCHTOWER_IDS = ["direct-injection"] as const;
 export type LevelId = (typeof LEVEL_IDS)[number] | (typeof WATCHTOWER_IDS)[number];
 
-/** The naive graphs of a backend level file (each must lose stars the way it declares). */
 export function naiveGraphs(id: LevelId): { id: string; graph: Graph }[] {
   const raw = readJson("..", "backend", "src", "vgame", "engine", "levels", `${id}.json`);
   return v.parse(
@@ -56,7 +50,6 @@ export function testEnv(id: LevelId): Env {
   };
 }
 
-/** `backend/src/vgame/engine/levels/<id>.json`: reference graph and star rules. */
 export function levelFile(id: LevelId) {
   const raw = readJson("..", "backend", "src", "vgame", "engine", "levels", `${id}.json`);
   return v.parse(
@@ -77,7 +70,6 @@ export interface SseFrame {
   data: string;
 }
 
-/** Frames of a captured `text/event-stream` body (comments such as `: ping` dropped). */
 export function parseSse(text: string): SseFrame[] {
   return text
     .split(/\r?\n\r?\n/)
@@ -102,10 +94,8 @@ export function parseSse(text: string): SseFrame[] {
 export const sseText = (frames: readonly SseFrame[]) =>
   frames.map((frame) => `id: ${frame.id}\nevent: ${frame.event}\ndata: ${frame.data}\n\n`).join("");
 
-/** Run id of the captured and hand-written streams. */
 export const RUN = "0123456789abcdef0123456789abcdef";
 
-/** The run view after these frames, from `start` or from a fresh run. */
 export function replay(frames: readonly SseFrame[], start: RunView | null = null): RunView | null {
   let state = start ?? runReducer(null, { kind: "reset", runId: RUN });
   for (const frame of frames) {

@@ -20,7 +20,6 @@ import type { CaseView, RunView } from "./run";
 
 const said = (pass: boolean) => (pass ? "đạt" : "trượt");
 
-/** One radio drawn as a chip. */
 function Chip({
   name,
   checked,
@@ -46,11 +45,6 @@ function Chip({
   );
 }
 
-/**
- * N1 + N19: the slip before a run. Every part is optional and one click; nothing blocks Mở ca.
- * Sample cases (golden order puts them first) get a pass/fail call and a confidence bet; the
- * other cases are picked by number only, since their questions are never shown (L1 §7).
- */
 export function GuessSlip({
   env,
   slip,
@@ -62,8 +56,6 @@ export function GuessSlip({
 }) {
   const id = useId();
   const { level } = env;
-  // normal + trap, not + info: workbench-v0.1 §8.2 words the header the same way so the
-  // slip's denominator and "{n} câu tính sao" cannot disagree (L3: header 12, run 13).
   const total = level.case_counts.normal + level.case_counts.trap;
   const samples = level.visible_cases;
   const others = Array.from({ length: total - samples.length }, (_, i) => samples.length + i + 1);
@@ -71,8 +63,6 @@ export function GuessSlip({
     onChange({ ...slip, bets: { ...slip.bets, [caseId]: next } });
 
   return (
-    // The <details> summary that opens this is its visible heading (RunPanel), so the name
-    // comes from aria-label: a second visible copy of the words would be read twice.
     <section
       aria-label="Đoán trước khi mở ca"
       className="mt-2 space-y-4 rounded-md border border-line p-4"
@@ -186,8 +176,6 @@ export function GuessSlip({
         </fieldset>
       )}
 
-      {/* Stays mounted and goes disabled rather than unmounting: its own click used to remove
-          the element holding focus, dropping the keyboard back to <body>. */}
       <button
         type="button"
         onClick={() => onChange(EMPTY_SLIP)}
@@ -200,19 +188,16 @@ export function GuessSlip({
   );
 }
 
-/** "Câu #n" linking to its card in the results. */
 const CaseLink = ({ c }: { c: CaseView }) => (
   <a href={`#cau-${c.n}`} className="font-semibold text-brand underline underline-offset-4">
     câu #{c.n}
   </a>
 );
 
-/** The slip graded against case.graded, after run.finished: hits, misses, surprises (B1). */
 export function SlipResult({ slip, run, levelId }: { slip: Slip; run: RunView; levelId: string }) {
   const grade = gradeSlip(slip, run, levelId);
   if (!grade) return null;
   const { count, predictions, surprises, asks } = grade;
-  // Correct "will pass" calls are the bulk and carry no lesson: count them, list the rest.
   const listed = predictions.filter((p) => !p.right || !p.pass);
   const right = predictions.filter((p) => p.right).length;
   return (
@@ -275,7 +260,6 @@ export function SlipResult({ slip, run, levelId }: { slip: Slip; run: RunView; l
   );
 }
 
-/** N19 "Bất ngờ": a sure bet that the run proved wrong, with the run's own evidence. */
 function Surprise({ p }: { p: Prediction }) {
   return (
     <div className="mt-3 rounded-md border border-warning bg-warning-tint p-4 text-sm">
@@ -289,7 +273,6 @@ function Surprise({ p }: { p: Prediction }) {
       <p className="mt-1">Bằng chứng từ lượt chạy: {evidenceText(p.c)}.</p>
       <a
         href={`#cau-${p.c.n}`}
-        // Body colour, not brand: the brand tone is not checked against the warning tint.
         className="mt-1 inline-flex min-h-11 items-center font-semibold underline underline-offset-4"
       >
         Xem bằng chứng ở câu #{p.c.n}
@@ -298,12 +281,6 @@ function Surprise({ p }: { p: Prediction }) {
   );
 }
 
-/**
- * "Vì sao câu #N sai?" (L1 §11): a choice before the diagnosis; a wrong one costs nothing.
- * The answer is `options[0]`; `turn` rotates the order so it is not always in the same place.
- * The caller passes the seed because the budget menu has no case to turn with: seeded with 0
- * it left the answer first every single time, which is the one thing the menu must not do.
- */
 export function WhyMenu({
   c,
   menu,
@@ -313,9 +290,7 @@ export function WhyMenu({
 }: {
   c: CaseView | null;
   menu: Menu;
-  /** Rotation seed; any non-negative integer that varies between menus. */
   turn: number;
-  /** The stable index into `menu.options` the player picked -- never the rotated display slot. */
   onAnswer: (index: number) => void;
   onSkip: () => void;
 }) {

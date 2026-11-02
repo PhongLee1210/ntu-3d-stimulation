@@ -14,12 +14,6 @@ import { testEnv } from "./test-fixtures";
 
 afterEach(cleanup);
 
-/**
- * axe in jsdom over the toys. The Playwright a11y suite is the real gate, but it runs only in
- * CI and twice today it was the only thing that caught a structural mistake — the last one a
- * role="img" on a <ul>, which orphaned every <li>. These rules need no layout, so jsdom can
- * answer them in milliseconds, right where the component is written.
- */
 const STRUCTURAL = [
   "list",
   "th-has-data-cells",
@@ -38,9 +32,6 @@ const STRUCTURAL = [
 
 async function violations(node: Element) {
   const result = await axe.run(node, { runOnly: { type: "rule", values: STRUCTURAL } });
-  // An empty violations list means nothing only if a rule actually matched something. Put
-  // aria-hidden on the subtree, or role="img" on a list, and every structural rule becomes
-  // inapplicable -- which reads exactly like a pass. Fail loudly instead.
   expect(result.passes.length).toBeGreaterThan(0);
   return result.violations.map((v) => `${v.id}: ${v.nodes[0]?.target.join(" ")}`);
 }
@@ -92,8 +83,6 @@ describe("the toys answer axe's structural rules", () => {
   });
 
   it("the citation ledger answers the table rules too", async () => {
-    // A <table> brings its own structural rules: a row header with no data cells, a bad scope,
-    // or headers pointing at nothing are all invisible to the list rules above.
     const { container } = render(
       <CitationLedger
         caseRole="visible"

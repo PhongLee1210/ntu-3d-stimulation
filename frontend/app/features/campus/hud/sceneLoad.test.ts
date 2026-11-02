@@ -91,7 +91,6 @@ describe("stage signals", () => {
     vi.advanceTimersByTime(1);
     expect(sceneLoad.getState().stage).toBe(STAGE.done);
 
-    // A timer from an earlier visit must not finish the next one.
     beginScene();
     advanceScene(STAGE.paint);
     beginScene();

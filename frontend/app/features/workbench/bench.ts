@@ -1,13 +1,5 @@
 import type { BlockType, Blocks, Graph, GraphNode, JsonValue, PublicLevel } from "./schema";
 
-/**
- * The bench: one fixed slot per block type (workbench-v0.1 §3). Players attach, detach and tune
- * toys; a pure function turns the slots into the graph JSON the server runs, and another reads a
- * graph back into slots. No graph editor: a Library graph has at most ten nodes of fixed shape,
- * a Watchtower desk at most seven (watchtower.md §3.2).
- */
-
-/** Slot order = topological order = Tab order (§3.1). */
 export const SLOT_ORDER: readonly BlockType[] = [
   "input",
   "corpus",
@@ -25,7 +17,6 @@ export const SLOT_ORDER: readonly BlockType[] = [
   "action_llm",
   "output",
 ];
-/** Slots the player can attach and detach. */
 export const OPTIONAL_SLOTS = [
   "vector_search",
   "bm25_search",
@@ -62,11 +53,8 @@ export type Cards = readonly [string | null, string | null, string | null];
 
 export interface Bench {
   attached: Readonly<Record<SlotType, boolean>>;
-  /** By node id, detached slots included (re-attaching keeps their values). */
   params: Readonly<Record<string, Params>>;
-  /** Prompt card keys in the three Lăng kính slots (§3.3). */
   cards: Cards;
-  /** Watchtower: the phrases picked from the level's tray for the net, in tray order. */
   phrases: readonly string[];
 }
 
@@ -76,13 +64,11 @@ export type Domain =
   | { kind: "range"; min: number; max: number; step: number; integer: boolean }
   | { kind: "toggle" };
 
-/** Level + block registry: everything the bench is built from. */
 export interface Env {
   level: PublicLevel;
   blocks: Blocks;
 }
 
-/** Node id per block type: the starter graph's id when it has that type, else the default. */
 export function nodeIds(level: PublicLevel): Readonly<Record<BlockType, string>> {
   const ids = { ...DEFAULT_ID };
   for (const node of level.starter_graph.nodes) ids[node.type] = node.id;
@@ -91,31 +77,23 @@ export function nodeIds(level: PublicLevel): Readonly<Record<BlockType, string>>
 
 export const isAllowed = (level: PublicLevel, type: BlockType) =>
   level.allowed_blocks.includes(type);
-/** The block whose Lăng kính the player fills: the library's reader or the desk's slip writer. */
 export const promptType = (env: Env): "llm" | "action_llm" =>
   isAllowed(env.level, "action_llm") ? "action_llm" : "llm";
 export const isLocked = (level: PublicLevel, type: BlockType) =>
   level.locked_nodes.includes(nodeIds(level)[type]);
 
-/**
- * Params the bench tunes with a control. `system_prompt` is the Lăng kính (cards), `phrases` the
- * net's tray; a guard's `refusal` is the level's, never the player's (watchtower.md §3.2).
- */
 const NOT_A_CONTROL = new Set(["system_prompt", "phrases", "refusal"]);
 export const paramNames = (blocks: Blocks, type: BlockType) =>
   Object.keys(blocks[type].params.properties).filter((name) => !NOT_A_CONTROL.has(name));
 
 const decimals = (step: number) => (String(step).split(".")[1] ?? "").length;
-/** 0.15, not 0.15000000000000002 (§3.2). */
 export const roundToStep = (value: number, step: number) =>
   Number((Math.round(value / step) * step).toFixed(decimals(step)));
 
-/** A control's domain = the block's JSON Schema ∩ the level's `param_limits` (§3.2). */
 export function domain(env: Env, type: BlockType, param: string): Domain | null {
   const schema = env.blocks[type].params.properties[param];
   if (!schema) return null;
   const limit = env.level.param_limits[`${type}.${param}`];
-  // `!== undefined`, never truthiness: L1 fixes values at 0 and at false.
   if (limit?.const !== undefined) return { kind: "fixed", value: limit.const };
   if (schema.const !== undefined) return { kind: "fixed", value: schema.const };
   if (schema.enum) return { kind: "choice", options: schema.enum };
@@ -147,7 +125,6 @@ export function inDomain(d: Domain, value: JsonValue | undefined): boolean {
   }
 }
 
-/** Value of a newly attached control: the schema default, clamped into the domain. */
 function initialValue(env: Env, type: BlockType, param: string, d: Domain): JsonValue {
   const fallback = env.blocks[type].params.properties[param]?.default ?? null;
   switch (d.kind) {
@@ -175,7 +152,6 @@ function initialParams(env: Env, type: BlockType): Params {
   return params;
 }
 
-/** Every param of every node, with schema defaults filled in (how tests compare graphs). */
 export function fillDefaults(blocks: Blocks, graph: Graph): Graph {
   return {
     ...graph,
@@ -189,7 +165,6 @@ export function fillDefaults(blocks: Blocks, graph: Graph): Graph {
   };
 }
 
-/** JSON equality, ignoring object key order. */
 export function sameJson(a: unknown, b: unknown): boolean {
   return stable(a) === stable(b);
 }
@@ -202,14 +177,10 @@ function stable(value: unknown): string {
   return JSON.stringify(value);
 }
 
-// --- Lăng kính ------------------------------------------------------------------------------
-
-/** `system_prompt` = the texts of the non-empty card slots, in slot order, joined by "\n". */
 export function systemPrompt(level: PublicLevel, cards: Cards): string {
   return cards.flatMap((key) => (key === null ? [] : [level.prompt_cards[key] ?? ""])).join("\n");
 }
 
-/** Cards back from a prompt: each line must be one card verbatim, at most 3, no repeats. */
 export function cardsFromPrompt(level: PublicLevel, prompt: string): Cards | null {
   if (prompt === "") return [null, null, null];
   const lines = prompt.split("\n");
@@ -220,12 +191,9 @@ export function cardsFromPrompt(level: PublicLevel, prompt: string): Cards | nul
   return [keys[0] ?? null, keys[1] ?? null, keys[2] ?? null];
 }
 
-// --- Bench <-> graph ------------------------------------------------------------------------
-
 const starterNode = (level: PublicLevel, id: string) =>
   level.starter_graph.nodes.find((node) => node.id === id);
 
-/** Current params of a slot: the starter's for a locked node, the bench's otherwise. */
 export function slotParams(env: Env, bench: Bench, type: BlockType): Params {
   const id = nodeIds(env.level)[type];
   if (isLocked(env.level, type)) {
@@ -239,7 +207,6 @@ export function slotParams(env: Env, bench: Bench, type: BlockType): Params {
 
 const SPECIAL = new Set<BlockType>(["input", "corpus", "output"]);
 
-/** The graph JSON for a bench (§3.4). Node and edge order match the level files exactly. */
 export function graphFromBench(env: Env, bench: Bench): Graph {
   const { level } = env;
   const ids = nodeIds(level);
@@ -260,7 +227,6 @@ export function graphFromBench(env: Env, bench: Bench): Graph {
   const on = (type: SlotType) => isAllowed(level, type) && bench.attached[type];
   const q = ids.input;
   if (isAllowed(level, "action_llm")) {
-    // The Watchtower desk: guards in a chain before the desk, the refund tool behind its gate.
     const nodes: GraphNode[] = [node("input")];
     const edges: [string, string][] = [];
     let head = q;
@@ -319,10 +285,6 @@ export function graphFromBench(env: Env, bench: Bench): Graph {
   return { schema: 1, nodes, edges };
 }
 
-/**
- * Reads a graph back into slots, or null when the bench cannot draw it: a type twice, a value
- * outside its domain, an unknown card, or any edge/order the bench would not produce.
- */
 export function benchFromGraph(env: Env, graph: Graph): Bench | null {
   const { level, blocks } = env;
   const ids = nodeIds(level);
@@ -340,9 +302,6 @@ export function benchFromGraph(env: Env, graph: Graph): Bench | null {
     const found = filled.nodes.find((node) => node.type === type);
     const own = found ? { ...found.params } : initialParams(env, type);
     if (type === "pattern_guard") {
-      // Only tray phrases, each once: the net's toy can show nothing else. A phrase off the tray
-      // or a repeat leaves the count short; an order other than the tray's fails the final
-      // round-trip check, since the bench always writes them in tray order.
       const picked = Array.isArray(own.phrases) ? own.phrases : [];
       phrases = level.phrase_tray.filter((p) => picked.includes(p));
       if (phrases.length !== picked.length) return null;
@@ -384,8 +343,6 @@ export function benchFromGraph(env: Env, graph: Graph): Bench | null {
 
 export const starterBench = (env: Env) => benchFromGraph(env, env.level.starter_graph);
 
-// --- Edits ----------------------------------------------------------------------------------
-
 export function setParam(
   env: Env,
   bench: Bench,
@@ -402,7 +359,6 @@ export const setAttached = (bench: Bench, type: SlotType, on: boolean): Bench =>
   attached: { ...bench.attached, [type]: on },
 });
 
-/** Picks or drops a tray phrase of the net; the bench keeps them in tray order. */
 export function setPhrase(level: PublicLevel, bench: Bench, phrase: string, on: boolean): Bench {
   const picked = new Set(bench.phrases);
   if (on) picked.add(phrase);

@@ -89,7 +89,6 @@ describe("the machine map at the head of the bench", () => {
     ]);
   });
 
-  // L1's starter has no search attached: the lesson is the gap, so the gap is drawn.
   it("draws a missing search as an empty socket and the pipe after it broken", () => {
     const bench = setAttached(starter(l1), "vector_search", false);
     draw(l1, bench);
@@ -180,7 +179,6 @@ describe("the machine map at the head of the bench", () => {
   });
 });
 
-// The beats walk the question through the machine, one toy at a time (Colorfigures-style).
 describe("the beats beside the machine", () => {
   it("offers one beat per toy the question passes, in order, and none for the shelf", () => {
     draw(l3, starter(l3));
@@ -235,7 +233,6 @@ describe("the beats beside the machine", () => {
   });
 });
 
-// The beats read the run's own facts once one is on the bench (here the committed L3 recording).
 describe("the beats on a recorded run", () => {
   function recorded(caseId: string): BenchRunView {
     const file = JSON.parse(readText("public", "runs", "article-number-lookup.json")) as {
@@ -254,7 +251,6 @@ describe("the beats on a recorded run", () => {
     expect(line).not.toContain("tối đa");
   });
 
-  // The recorded L3 answer happens to carry no markdown, so the marks are put there.
   it("reads the answer as one plain line, without markdown marks or line breaks", () => {
     const view = recorded("lib-l3-v01");
     const marked = { ...view, followed: { ...view.followed, answer: "**Điều 47**\n\nkhoản 2" } };
@@ -265,8 +261,6 @@ describe("the beats on a recorded run", () => {
     const view = recorded("lib-l3-v01");
     const hidden = view.run.cases.find((c) => c.role !== "visible");
     if (!hidden) throw new Error("the recording has no hidden case");
-    // The words are planted: a hidden case's own payload may carry none, and then a leak
-    // would read exactly like a pass.
     const asHidden = {
       ...view,
       followed: { ...hidden, steps: view.followed.steps, question: "CÂU ẨN", answer: "ĐÁP ẨN" },
@@ -276,8 +270,6 @@ describe("the beats on a recorded run", () => {
   });
 });
 
-// The Colorfigures-style dressing: a figure caption, callout labels, a see-through that shows
-// what each toy holds inside, and a question slip that travels the belt to the beat's toy.
 describe("the machine as a figure to play with", () => {
   it("captions the figure with the level it belongs to", () => {
     draw(l1, starter(l1));
@@ -312,7 +304,6 @@ describe("the machine as a figure to play with", () => {
     const inside = [...document.querySelectorAll("[data-internal]")].map((g) =>
       g.getAttribute("data-internal"),
     );
-    // Six toys on the bench; the empty socket has nothing inside to show.
     expect(inside).toEqual(["input", "corpus", "chunker", "context_packer", "llm", "output"]);
     expect(document.querySelectorAll("[data-glass]").length).toBe(6);
   });

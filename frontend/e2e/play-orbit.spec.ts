@@ -11,11 +11,6 @@ import {
 import { SPAWN, type Vec2 } from "../app/features/campus/layout";
 import { expect, mockApi, test, waitForIdleScene } from "./fixtures";
 
-/*
- * Turning the campus view (orbit-camera §2, §9). `?debug=frames` writes the view's yaw in
- * degrees ([0, 360)) to <html data-yaw> and the player's ground position to data-player.
- */
-
 const deg = (d: number) => (d * Math.PI) / 180;
 
 const yawOf = async (page: Page) => Number(await page.locator("html").getAttribute("data-yaw"));
@@ -27,14 +22,12 @@ async function playerOf(page: Page): Promise<Vec2> {
   return { x, z };
 }
 
-/** Waits for the view to rest at `degrees` (±1). */
 async function expectYaw(page: Page, degrees: number) {
   await waitForIdleScene(page);
   const off = (await yawOf(page)) - degrees;
   expect(Math.abs((((off % 360) + 540) % 360) - 180)).toBeLessThanOrEqual(1);
 }
 
-/** Pixel of a world point in the overview at `yaw` (camera.ts; follow would need its history). */
 function overviewPixel(view: View, yaw: number, x: number, y: number, z: number) {
   const centre = cameraCentre(desiredCentre(SPAWN_SCREEN, SPAWN_SCREEN, view, false, yaw), view);
   const p = toScreen(x, y, z, yaw);
@@ -44,7 +37,6 @@ function overviewPixel(view: View, yaw: number, x: number, y: number, z: number)
   };
 }
 const SPAWN_SCREEN = toScreen(SPAWN.x, 0, SPAWN.z);
-/** Open lawn east of the spawn: a press there that does not drag walks the player. */
 const LAWN = { x: 1.2, z: 0.6 };
 
 const viewButton = (page: Page, name: string) =>
@@ -69,11 +61,9 @@ test.describe("campus view, desktop", () => {
     await page.mouse.move(start.x - 150, start.y, { steps: 10 });
     await page.mouse.move(start.x - 300, start.y, { steps: 10 });
     await page.mouse.up();
-    // 300 px at 0.3°/px, then the release settles on the 135° diagonal.
     await expectYaw(page, 135);
     expect(await playerOf(page)).toEqual(before);
     const frames = await page.evaluate(() => Number(document.documentElement.dataset.frames));
-    // Measuring idleness needs time to pass; no state is being waited for here.
     await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1000)));
     expect(await page.evaluate(() => Number(document.documentElement.dataset.frames))).toBe(frames);
     await expect(viewButton(page, COMPASS)).toHaveAttribute("aria-disabled", "false");
@@ -85,7 +75,6 @@ test.describe("campus view, desktop", () => {
     const lawn = overviewPixel(view, deg(45), LAWN.x, 0, LAWN.z);
     const before = await playerOf(page);
 
-    // A 200 px drag released over the ground: the click after it does nothing.
     await page.mouse.move(lawn.x + 100, lawn.y);
     await page.mouse.down();
     await page.mouse.move(lawn.x - 100, lawn.y, { steps: 8 });
@@ -95,7 +84,6 @@ test.describe("campus view, desktop", () => {
 
     await viewButton(page, COMPASS).click();
     await expectYaw(page, 45);
-    // A 3 px nudge is still a click.
     await page.mouse.move(lawn.x, lawn.y);
     await page.mouse.down();
     await page.mouse.move(lawn.x + 3, lawn.y, { steps: 2 });
@@ -133,8 +121,6 @@ test.describe("campus view, desktop", () => {
     const yaw = deg(135);
     const before = await playerOf(page);
     const a = toScreen(before.x, 0, before.z, yaw);
-    // Hold the key until the walk has covered some ground, not for a fixed time: each frame
-    // advances at most 0.1 s, so on a slow software-WebGL runner 500 ms walks less far.
     await page.keyboard.down("ArrowUp");
     await expect
       .poll(async () => {
@@ -189,7 +175,6 @@ test.describe("campus view, phone", () => {
       await expect(viewButton(page, name)).toBeVisible();
     }
 
-    // A tap beside the player (follow keeps it near the middle) still walks.
     const before = await playerOf(page);
     const view = viewFor(375, 812);
     const focus = toScreen(before.x, 0, before.z);
@@ -202,8 +187,6 @@ test.describe("campus view, phone", () => {
     await waitForIdleScene(page);
     expect(await playerOf(page)).not.toEqual(before);
 
-    // One finger turns the view: pointer events as a touch screen sends them. The synthetic
-    // pointer cannot be captured (useHubFrame catches that).
     const canvas = page.locator("canvas");
     const touch = { pointerType: "touch", isPrimary: true, pointerId: 7, button: 0, clientY: 500 };
     await canvas.dispatchEvent("pointerdown", { ...touch, clientX: 300 });
@@ -211,10 +194,8 @@ test.describe("campus view, phone", () => {
       await canvas.dispatchEvent("pointermove", { ...touch, clientX });
     }
     await canvas.dispatchEvent("pointerup", { ...touch, clientX: 130 });
-    // 150 px at 0.6°/px from the slop on: 45° + 90°.
     await expectYaw(page, 135);
 
-    // Next to the librarian the hint shows; the buttons stay clear above it.
     await page.getByRole("button", { name: "Các khu" }).click();
     await page.getByRole("button", { name: "Nói chuyện với cô Lan", exact: true }).click();
     await page

@@ -10,7 +10,6 @@ export function ChevronLeftIcon({ className = "size-4 shrink-0" }: { className?:
 
 const ICON = "size-4 shrink-0";
 
-/** Disclosure marker for a `<summary>`; turns when its `<details className="group">` opens. */
 export function ChevronDownIcon({
   className = `${ICON} transition-transform duration-150 group-open:rotate-180`,
 }: {
@@ -59,7 +58,6 @@ export function CrossIcon({ className = ICON }: { className?: string }) {
   );
 }
 
-/** Star; colour comes from the caller's `fill-*` / `stroke-*` classes. */
 export function StarIcon({ className = ICON }: { className?: string }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" className={className} strokeWidth="1.5">
@@ -77,7 +75,6 @@ export function AlertIcon({ className = ICON }: { className?: string }) {
   );
 }
 
-/** Not run yet: an open dashed ring. */
 export function CircleDashIcon({ className = ICON }: { className?: string }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" className={className} fill="none">
@@ -93,7 +90,6 @@ export function CircleDashIcon({ className = ICON }: { className?: string }) {
   );
 }
 
-/** Waiting its turn. */
 export function ClockIcon({ className = ICON }: { className?: string }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" className={className} fill="none">
@@ -103,7 +99,6 @@ export function ClockIcon({ className = ICON }: { className?: string }) {
   );
 }
 
-/** Running now (a still mark, never a spinner). */
 export function PlayIcon({ className = ICON }: { className?: string }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" className={className} fill="none">
@@ -112,7 +107,6 @@ export function PlayIcon({ className = ICON }: { className?: string }) {
   );
 }
 
-/** Turn the campus view (orbit-camera §2.3): an arc with its arrowhead at the top left. */
 export function RotateCcwIcon({ className = ICON }: { className?: string }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" className={className} fill="none">
@@ -141,7 +135,6 @@ export function RotateCwIcon({ className = ICON }: { className?: string }) {
   );
 }
 
-/** A compass whose needle (`needleRef`) the caller turns; at rest it points up. */
 export function CompassIcon({
   className = ICON,
   needleRef,
@@ -165,10 +158,6 @@ export function CompassIcon({
   );
 }
 
-/*
- * Weather (campus v0.4 W6): 1.5 px strokes in currentColor on the 20-unit grid, no emoji. Each
- * cloud icon shares one cloud outline so the set reads as a family.
- */
 const CLOUD = "M6 15.5h8.25a3.25 3.25 0 0 0 .4-6.48A4.5 4.5 0 0 0 6 9.5a3 3 0 0 0 0 6Z";
 const SMALL_CLOUD = "M7 16h7.5a2.75 2.75 0 0 0 .3-5.48A3.75 3.75 0 0 0 7.6 11 2.5 2.5 0 0 0 7 16Z";
 

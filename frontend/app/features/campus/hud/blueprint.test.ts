@@ -47,7 +47,6 @@ const massBounds = (masses: readonly Mass[], start = EMPTY) =>
     (b, { box: [x0, x1, y0, y1, z0, z1] }) => grow(grow(b, x0, y0, z0), x1, y1, z1),
     start,
   );
-/** Bounds of the vertices of a built geometry that pass `keep`. */
 function geometryBounds(
   geometry: BufferGeometry,
   keep: (x: number, y: number, z: number) => boolean,
@@ -73,11 +72,6 @@ const expectClose = (
     ).toBeLessThanOrEqual(0.15);
   }
 };
-/**
- * Keeps a zone building's vertices, not its entrance lamps (the blueprint draws no lamps): the
- * post (r 0.055) below 1.6, the head and cap (r ≤ 0.17) above. The market's side roof has a
- * corner 0.15 from a lamp, so the radius splits by height.
- */
 const noLamps = (id: Parameters<typeof entranceLampSpots>[0]) => {
   const spots = entranceLampSpots(id);
   return (x: number, y: number, z: number) =>
@@ -89,7 +83,6 @@ describe("blueprintViewBox (alignment with the first 3D frame, spec §4.2)", () 
   const parse = (box: string) => box.split(" ").map(Number);
 
   it("matches the 1280×800 overview", () => {
-    // Overview: the width-limited fit of ORBIT_FRAME (45.88 wide), centred 0.24 below PIVOT.
     const zoom = (1280 - 48) / 45.88;
     const [cx, cy] = [4.45 / Math.SQRT2, 4.45 / Math.sqrt(6) - 0.24];
     const expected = [cx - 640 / zoom, -cy - 400 / zoom, 1280 / zoom, 800 / zoom];
@@ -159,14 +152,12 @@ describe("blueprintPieces", () => {
         const pal = palette(manifest.campus);
         const stacks = buildingStacks(landmark);
         const real = buildLandmark(pal, landmark.archetype, landmark.colonnades);
-        // The main building and its tower: everything of the landmark behind the lawn (z < 0).
         const front = stacks.filter(({ at }) => at === 0.86).flatMap(({ masses }) => masses);
         expectClose(
           massBounds(front),
           geometryBounds(real, (_x, _y, z) => z < 0),
           "landmark",
         );
-        // The gate, without its fence and column plinths (both low, left out of the mirror).
         const gate = stacks.filter(({ at }) => at === 0.92).flatMap(({ masses }) => masses);
         const realGate = geometryBounds(real, (x, y, z) => z > 11 && Math.abs(x) < 3 && y > 0.35);
         expectClose(massBounds(gate), realGate, "gate", [0, 1, 3, 4, 5]);

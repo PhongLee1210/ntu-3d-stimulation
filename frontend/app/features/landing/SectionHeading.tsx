@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 
 interface SectionHeadingProps {
   title: string;
-  /** One or two sentences that say what the section is for. */
   children?: ReactNode;
   tone?: "default" | "on-ink";
 }

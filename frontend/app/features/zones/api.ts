@@ -13,7 +13,6 @@ export function fetchZone(zoneId: string, signal?: AbortSignal): Promise<Zone> {
 
 export type ZoneListResult = { ok: true; zones: ZoneSummary[] } | { ok: false };
 
-/** Zone list for the hub. Never rejects: the scene keeps working when the API is down. */
 export async function loadZoneList(): Promise<ZoneListResult> {
   try {
     return { ok: true, zones: await fetchZones() };
@@ -30,7 +29,6 @@ export type ZonePageData =
 
 const ZONE_ID = /^[a-z][a-z0-9-]{1,31}$/;
 
-/** Everything `/play/:zoneId` can show, as data, so the page renders each state itself. */
 export async function loadZonePage(zoneId: string | undefined): Promise<ZonePageData> {
   if (!zoneId || !ZONE_ID.test(zoneId)) return { kind: "not-found" };
   try {

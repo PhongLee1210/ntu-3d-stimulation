@@ -1,11 +1,5 @@
 import * as v from "valibot";
 
-/**
- * Wire shapes of the engine API (docs/design/engine-v0.2.md §6–§9; backend `api/routes/*`,
- * `engine/types.py`). Objects are loose: the client reads only the fields it uses, so the server
- * may add fields without breaking it.
- */
-
 export const BLOCK_TYPES = [
   "input",
   "output",
@@ -17,7 +11,6 @@ export const BLOCK_TYPES = [
   "rerank",
   "context_packer",
   "llm",
-  // Watchtower W1 (docs/content/scenarios/watchtower.md §3.2).
   "pattern_guard",
   "injection_classifier",
   "tool_refund",
@@ -33,8 +26,6 @@ const Json = v.custom<JsonValue>(() => true);
 
 const Int = v.pipe(v.number(), v.integer());
 
-// --- Graph (engine-v0.2 §7.1) ---------------------------------------------------------------
-
 export const GraphNodeSchema = v.object({
   id: v.string(),
   type: BlockTypeSchema,
@@ -48,8 +39,6 @@ export const GraphSchema = v.object({
 export type GraphNode = v.InferOutput<typeof GraphNodeSchema>;
 export type Graph = v.InferOutput<typeof GraphSchema>;
 
-// --- GET /api/blocks ------------------------------------------------------------------------
-
 const PortSchema = v.looseObject({
   type: v.string(),
   type_vi: v.string(),
@@ -57,7 +46,6 @@ const PortSchema = v.looseObject({
   required: v.boolean(),
 });
 
-/** One property of a block's params JSON Schema (Pydantic `model_json_schema`). */
 export const ParamSchemaSchema = v.looseObject({
   type: v.optional(v.string()),
   title: v.optional(v.string()),
@@ -79,10 +67,6 @@ export const BlockSpecSchema = v.looseObject({
     properties: v.optional(v.record(v.string(), ParamSchemaSchema), {}),
   }),
 });
-/**
- * Blocks of a type this client does not know are dropped, not fatal: the server can ship a new
- * block before the workbench draws it, and one unknown type must not break every level.
- */
 export const BlocksResponseSchema = v.object({
   blocks: v.pipe(
     v.array(v.unknown()),
@@ -96,8 +80,6 @@ export const BlocksResponseSchema = v.object({
 });
 export type BlockSpec = v.InferOutput<typeof BlockSpecSchema>;
 export type Blocks = Readonly<Record<BlockType, BlockSpec>>;
-
-// --- GET /api/levels/{id} (PublicLevel, engine-v0.2 §9.2) -----------------------------------
 
 export const ParamLimitSchema = v.looseObject({
   ge: v.optional(v.number()),
@@ -122,20 +104,13 @@ export const PublicLevelSchema = v.looseObject({
   starter_graph: GraphSchema,
   token_budget: Int,
   stars_vi: v.array(v.string()),
-  // Star rules stars_vi words (engine-v0.2 §9.2); the star evidence of §8.6 reads them.
-  // Optional here and in case_counts.info: Vercel deploys before Render, so the page meets the
-  // older backend for a while; the evidence then just leaves those parts out.
   s1_required: v.optional(v.array(v.string()), []),
   s3_forbidden_labels: v.optional(v.array(v.string()), []),
   visible_cases: v.array(v.looseObject({ id: v.string(), vai: v.string(), question: v.string() })),
-  // `info`: cases that run (one AI call each) but earn no star.
   case_counts: v.looseObject({ normal: Int, trap: Int, info: v.optional(Int, 0) }),
-  // Watchtower: the phrases the net offers to pick from (picked, never typed).
   phrase_tray: v.optional(v.array(v.string()), []),
 });
 export type PublicLevel = v.InferOutput<typeof PublicLevelSchema>;
-
-// --- POST /api/runs -------------------------------------------------------------------------
 
 export const IssueSchema = v.looseObject({
   code: v.string(),
@@ -151,8 +126,6 @@ export const PostRunResponseSchema = v.looseObject({
   created: v.boolean(),
   issues: v.array(IssueSchema),
 });
-
-// --- SSE events (engine-v0.2 §8) ------------------------------------------------------------
 
 const Tokens = v.looseObject({ in: Int, out: Int });
 
@@ -181,7 +154,6 @@ export const FactSchema = v.variant("kind", [
     system_tokens: Int,
     answer: v.optional(v.string()),
   }),
-  // Watchtower: a guard's verdict, and the write actions the desk ran (watchtower.md §3).
   v.looseObject({
     kind: v.literal("guard"),
     by: v.picklist(["pattern", "classifier"]),
@@ -203,7 +175,6 @@ export const FactSchema = v.variant("kind", [
   }),
 ]);
 export type Fact = v.InferOutput<typeof FactSchema>;
-/** Unknown fact kinds are dropped instead of failing the whole event. */
 const Facts = v.pipe(
   v.array(v.unknown()),
   v.transform((items) =>
@@ -214,7 +185,6 @@ const Facts = v.pipe(
   ),
 );
 
-// "review": the one case of a variant run after hint 3 (scope "bien_the", N16).
 const CaseRoleSchema = v.picklist(["visible", "hidden", "trap", "review"]);
 export type CaseRole = v.InferOutput<typeof CaseRoleSchema>;
 
@@ -246,7 +216,6 @@ const RunReportSchema = v.looseObject({
     v.looseObject({
       case: v.nullable(v.string()),
       flag: v.string(),
-      // "regression" only: the flag that broke, for "Xem ở".
       cause: v.optional(v.string()),
       message_vi: v.string(),
     }),
@@ -256,8 +225,6 @@ export type RunReport = v.InferOutput<typeof RunReportSchema>;
 
 export const EVENT_SCHEMAS = {
   "run.started": v.looseObject({
-    // Absent on a star run. "mau": the 3 visible cases only, no stars (N2). "da_ghi": a
-    // recorded run replayed from a static file, never the player's own attempt (N4).
     scope: v.optional(v.picklist(["mau", "da_ghi", "bien_the"])),
     cases: v.array(
       v.looseObject({
@@ -289,17 +256,12 @@ export const EVENT_SCHEMAS = {
     counted: v.boolean(),
     criteria: v.record(v.string(), v.boolean()),
     labels: v.array(v.string()),
-    // Only when the server's daily cap skipped this case: §3.3 exempts such a run from
-    // overwriting the stars, so the client has to be able to tell it apart from a case the
-    // player's own per-case budget skipped.
     reason: v.optional(v.literal("daily_cap")),
   }),
   "run.scored": v.looseObject({ score: StarResultSchema }),
   "run.finished": v.looseObject({
     report: RunReportSchema,
     models: v.record(v.string(), Int),
-    // X7: the model the run's scoring assumes. Absent when nothing answered, and on runs
-    // recorded before the engine sent it.
     primary_model: v.optional(v.string()),
   }),
   "run.failed": v.looseObject({ code: v.string(), message_vi: v.string() }),
@@ -311,7 +273,6 @@ export type RunEvent = {
   [K in EventType]: { type: K } & v.InferOutput<(typeof EVENT_SCHEMAS)[K]>;
 }[EventType];
 
-/** Parses one SSE `data:` payload of a known type; null when it does not match the contract. */
 export function parseEvent(type: EventType, data: string): RunEvent | null {
   let json: unknown;
   try {

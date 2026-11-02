@@ -18,10 +18,6 @@ const QUESTION = "Em muốn bảo lưu kết quả học tập một học kỳ 
 const RETRIEVED_PASSAGE =
   "Điều 12. Bảo lưu kết quả học tập. 2. Sinh viên nộp đơn bảo lưu cho phòng đào tạo chậm nhất hai tuần trước ngày bắt đầu học kỳ, kèm ý kiến của cố vấn học tập.";
 
-/**
- * Illustrative walk-through of the first Library level: predict, run, explain. The game
- * runs agents for real; this page section uses a fixed, labelled example.
- */
 export function ShiftDemo() {
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [stage, setStage] = useState<Stage>("predict");

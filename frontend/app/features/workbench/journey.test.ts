@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { rankJourney } from "./journey";
 
-/** Node ids in the order the graph runs them, as nodeIds(level) gives them. */
 const ORDER = ["vs", "bm", "fu", "rr"];
 
 describe("rankJourney", () => {
@@ -22,7 +21,6 @@ describe("rankJourney", () => {
   });
 
   it("marks a block that never found the passage, rather than dropping it", () => {
-    // null is the engine's "absent from this block's ranking" (GoldReveal.ranks).
     const steps = rankJourney({ vs: null, rr: 1 }, ORDER);
     expect(steps.map((s) => [s.node, s.rank])).toEqual([
       ["vs", null],
@@ -30,7 +28,6 @@ describe("rankJourney", () => {
     ]);
   });
 
-  // Both search blocks rank the whole store, so a hop between them is one ruler (§8.6).
   const STORE = { vs: { kind: "corpus" }, bm: { kind: "corpus" } } as const;
 
   it("says which way each hop moved, so the picture can show a rise or a fall", () => {
@@ -67,9 +64,6 @@ describe("ranks taken over different populations", () => {
   const kept = (size: number | null) => ({ kind: "kept", size }) as const;
 
   it("will not call a scale change a rise", () => {
-    // The L3 story: hạng 23 over the whole corpus, then hạng 2 inside the 3 passages Kính lúp
-    // kept. The passage did get better off, but 23 and 2 are not two points on one ruler, and
-    // workbench-v0.1.md:486 requires the text to say which is which.
     const steps = rankJourney({ vs: 23, rr: 2 }, ["vs", "rr"], { vs: corpus, rr: kept(3) });
     expect(steps.map((s) => s.move)).toEqual(["start", "rescaled"]);
   });

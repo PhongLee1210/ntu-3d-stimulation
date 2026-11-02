@@ -1,9 +1,5 @@
 # ADR 0002: Theme packs
 
-- **Trạng thái:** Đã chấp nhận (phương án C của chủ dự án)
-- **Ngày ghi:** 2026-10-07
-- **Liên quan:** [Đặc tả tổng hợp](../specs/2026-10-07-v-game-design.md), [ADR 0001](0001-frontend-stack.md)
-
 ## Bối cảnh
 
 - Game cần một theme campus lấy cảm hứng từ một trường đại học có thật, nhưng chưa có phép dùng thương hiệu của trường.

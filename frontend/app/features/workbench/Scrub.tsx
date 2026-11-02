@@ -6,13 +6,6 @@ import { ChevronDownIcon } from "~/components/ui/icons";
 import { SCRUB_VI } from "./copy";
 import type { CaseView } from "./run";
 
-/**
- * N4: walk a finished run case by case. The case table jumps to one; this walks the run in the
- * order it happened, which is what re-reading a run you already watched actually is.
- *
- * It moves the followed case and nothing else, so the bench, the dome and the cards all redraw
- * from the one piece of state they already read.
- */
 export function Scrub({
   cases,
   followedId,

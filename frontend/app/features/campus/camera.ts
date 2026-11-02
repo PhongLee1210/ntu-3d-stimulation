@@ -1,14 +1,3 @@
-/**
- * Isometric camera maths (art-direction §4, orbit-camera §1). Pure functions only, so they are
- * unit tested and shared by the scene without importing three.js.
- *
- * The camera turns about the vertical axis only: `yaw` is its azimuth, so the ground direction
- * from the look-at point to the camera is h(yaw) = (sin yaw, cos yaw); pitch stays the true
- * isometric 35.264°. Screen coordinates (sx, sy) are in world units along the screen axes:
- * right R(yaw) = (cos yaw, 0, -sin yaw), up (-sin yaw · sin E, cos E, -cos yaw · sin E). At
- * HOME_YAW that is R = (1, 0, -1)/√2 and U = (-1, 2, -1)/√6.
- */
-
 export interface Screen {
   sx: number;
   sy: number;
@@ -37,43 +26,25 @@ interface Ground {
   z: number;
 }
 
-/** The default view, camera at +x, +z (art §4.1). */
 export const HOME_YAW = Math.PI / 4;
 const SIN_E = 1 / Math.sqrt(3);
 const COS_E = Math.sqrt(2 / 3);
 const DISTANCE = 60;
 
-/** Ground point the overview orbits: the middle of the base (layout BASE). */
 export const PIVOT = { x: 0, z: -4.45 } as const;
-/**
- * Screen extent of the whole model around PIVOT over every yaw, measured on the built geometry
- * (base, buildings, tree crowns) at 1° steps and rounded outwards; `top` has 0.2 more so the
- * 344-px left HUD corner stays sky at every yaw (orbit-camera §1.3).
- */
 export const ORBIT_FRAME = { half: 22.94, top: 13.42, bottom: -13.9 } as const;
-/**
- * Pixels kept free of scenery at both top corners in overview: HubTopBar lg:top-6 + h-11 + 8
- * high; wide enough for "Các khu" plus the theme switch with the longest theme name (≈ 315 px),
- * and on the left for "Về trang chủ" plus the weather chip (≈ 266 px, campus v0.4 W0.3).
- */
 export const HUD_CORNER = { width: 344, height: 76 } as const;
-/**
- * The "Góc nhìn" buttons at the bottom right (3 × 44 + 2 border + 24, 44 + 2 + 24 px), kept sky
- * in overview.
- */
 export const VIEW_CONTROLS = { width: 158, height: 70 } as const;
 
 const PAD = 24;
 const FOLLOW_INSET_TOP = 72;
 
-/** Screen position in world units for a camera at azimuth `yaw` (art §4.1 at HOME_YAW). */
 export function toScreen(x: number, y: number, z: number, yaw = HOME_YAW): Screen {
   const c = Math.cos(yaw);
   const s = Math.sin(yaw);
   return { sx: x * c - z * s, sy: y * COS_E - (x * s + z * c) * SIN_E };
 }
 
-/** The ground point (y = 0) that projects to the given screen position. */
 export function groundFromScreen({ sx, sy }: Screen, yaw = HOME_YAW): Ground {
   const c = Math.cos(yaw);
   const s = Math.sin(yaw);
@@ -81,17 +52,14 @@ export function groundFromScreen({ sx, sy }: Screen, yaw = HOME_YAW): Ground {
   return { x: sx * c + f * s, z: -sx * s + f * c };
 }
 
-/** Camera position minus its look-at point: 60 away, (34.641, 34.641, 34.641) at HOME_YAW. */
 export function cameraOffset(yaw: number): [number, number, number] {
   return [DISTANCE * COS_E * Math.sin(yaw), DISTANCE * SIN_E, DISTANCE * COS_E * Math.cos(yaw)];
 }
 
-/** An angle in (−π, π]. */
 export function wrapAngle(a: number): number {
   return Math.atan2(Math.sin(a), Math.cos(a));
 }
 
-/** `p` turned by `delta` around `pivot` on the ground, the way h(yaw) turns with yaw. */
 export function rotateAbout(p: Ground, pivot: Ground, delta: number): Ground {
   const dx = p.x - pivot.x;
   const dz = p.z - pivot.z;
@@ -101,10 +69,8 @@ export function rotateAbout(p: Ground, pivot: Ground, delta: number): Ground {
 }
 
 const QUARTER = Math.PI / 2;
-/** A rotate key or button never picks a diagonal this close: each press turns a visible step. */
 const MIN_TURN = Math.PI / 180;
 
-/** The next isometric diagonal (45°, 135°, 225°, 315°) from `yaw`, clockwise for +1. */
 export function nextIsoYaw(yaw: number, dir: -1 | 1): number {
   const u = (yaw - HOME_YAW) / QUARTER;
   const m = MIN_TURN / QUARTER;
@@ -112,24 +78,17 @@ export function nextIsoYaw(yaw: number, dir: -1 | 1): number {
   return wrapAngle(HOME_YAW + k * QUARTER);
 }
 
-/** Within this of a diagonal, a released drag settles on it (orbit-camera §2.4). */
 const SNAP = (12 * Math.PI) / 180;
 
-/** Where a released drag settles: the nearest diagonal within 12°, else where it is. */
 export function snapYaw(yaw: number, reduced = false): number {
   const diagonal = wrapAngle(HOME_YAW + Math.round((yaw - HOME_YAW) / QUARTER) * QUARTER);
   return !reduced && Math.abs(wrapAngle(yaw - diagonal)) <= SNAP + 1e-9 ? diagonal : yaw;
 }
 
-/** Drag speed in radians per CSS pixel: one turn per 600–1200 px of canvas width. */
 export function dragRate(width: number): number {
   return (2 * Math.PI) / Math.min(Math.max(width, 600), 1200);
 }
 
-/**
- * Screen bounds of the model at `yaw`: the four bottom corners of the plate and the four
- * corners of the ground (layout BASE), as v0.3's CONTENT was at HOME_YAW.
- */
 export function contentAt(yaw: number): Bounds2 {
   const b = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
   for (const [y, grow] of [
@@ -149,7 +108,6 @@ export function contentAt(yaw: number): Bounds2 {
   return b;
 }
 
-/** Zoom (CSS px per world unit) and camera mode for a viewport, art §4.3; the same at any yaw. */
 export function viewFor(width: number, height: number, insetBottom = 0): View {
   const spanX = 2 * ORBIT_FRAME.half;
   const spanY = ORBIT_FRAME.top - ORBIT_FRAME.bottom;
@@ -173,7 +131,6 @@ function clampAxis(value: number, half: number, min: number, max: number): numbe
   return Math.min(Math.max(value, min + half), max - half);
 }
 
-/** Keeps the visible area inside the model as seen from `yaw` (art §4.4). */
 export function clampCentre(centre: Screen, view: View, yaw = HOME_YAW): Screen {
   const content = contentAt(yaw);
   const hw = view.width / (2 * view.zoom);
@@ -184,12 +141,6 @@ export function clampCentre(centre: Screen, view: View, yaw = HOME_YAW): Screen 
   };
 }
 
-/**
- * Where the centre of the visible area should be, in the screen axes of `yaw`. Overview: the
- * middle of ORBIT_FRAME, which keeps PIVOT still on screen at every yaw. Follow: pushed by
- * exactly the amount `focus` leaves the dead-zone (art §4.5), or centred on `focus` when
- * `centreOnFocus` (the dialog sheet is open over the scene).
- */
 export function desiredCentre(
   current: Screen,
   focus: Screen,
@@ -213,12 +164,10 @@ export function desiredCentre(
   );
 }
 
-/** Camera look-at in screen space: the visible centre shifted by the HUD insets (art §4.4). */
 export function cameraCentre(visible: Screen, view: View): Screen {
   return { sx: visible.sx, sy: visible.sy + (view.insetTop - view.insetBottom) / (2 * view.zoom) };
 }
 
-/** Frame-rate independent exponential ease factor; 1 means "jump" (reduced motion). */
 export function easeFactor(rate: number, dt: number, reduced: boolean): number {
   return reduced ? 1 : 1 - Math.exp(-rate * dt);
 }

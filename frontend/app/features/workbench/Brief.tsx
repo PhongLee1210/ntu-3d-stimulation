@@ -5,11 +5,6 @@ import { LEVEL_COPY, npcOf, vaiVi } from "./copy";
 import { Scene } from "./Scene";
 import type { PublicLevel } from "./schema";
 
-/**
- * Page head (§8.2): title, brief and cô Lan on the left; from `lg` the star goals and tonight's
- * questions sit in the right column (over the aside), so the bench and "Mở ca" reach the first
- * screen at 1280×800.
- */
 export function Brief({ level, won = false }: { level: PublicLevel; won?: boolean }) {
   const copy = LEVEL_COPY[level.id];
   const { normal, trap } = level.case_counts;

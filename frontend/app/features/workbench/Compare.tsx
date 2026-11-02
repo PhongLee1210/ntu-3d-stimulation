@@ -5,13 +5,6 @@ import { compare } from "./runHistory";
 import type { Env } from "./bench";
 import type { RunMark } from "./storage";
 
-/**
- * The comparison card (N20): what changed between two remembered runs and which cases flipped.
- *
- * Text only, so no `Viz` and no source stamp -- a picture would need one, a sentence does not.
- * The label is the whole point of the card and rests entirely on `changes.length` (see
- * `compare`): naming a cause is honest for exactly one changed variable, never for more.
- */
 export function Compare({
   env,
   prev,

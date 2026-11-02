@@ -32,13 +32,11 @@ describe("historyMatrix", () => {
   });
 
   it("takes the columns from every run shown, not only the first", () => {
-    // A sample run grades three of ten cases; the wider run must not lose its columns.
     const m = historyMatrix([mark(2, 0, [1, 2]), mark(1, 1, [1, 2, 3, 4])]);
     expect(m.columns).toEqual([1, 2, 3, 4]);
   });
 
   it("calls a case a run never reached 'did not run', never a failure", () => {
-    // The whole honesty of the strip: a missing cell is missing data, not a verdict.
     const m = historyMatrix([mark(2, 0, [1, 2]), mark(1, 1, [1, 2, 3])]);
     expect(m.rows[0]?.cells.map((c) => c.state)).toEqual(["pass", "fail", "skip"]);
     expect(m.rows[1]?.cells.map((c) => c.state)).toEqual(["pass", "fail", "pass"]);
@@ -57,7 +55,6 @@ describe("historyMatrix", () => {
 
 describe("lastPassing", () => {
   it("picks the newest run that earned a star, not the newest run", () => {
-    // Star 1 is the level's passing line: it is what lights the zone.
     const runs = [mark(9, 0, [1]), mark(5, 2, [1]), mark(1, 1, [1])];
     expect(lastPassing(runs)?.at).toBe(5);
   });

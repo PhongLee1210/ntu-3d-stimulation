@@ -12,21 +12,15 @@ import {
   type WMO,
 } from "./fixtures";
 
-/*
- * Live sky and weather on /play (campus v0.4 W7). The fixture's "Cố định ban ngày" is off here:
- * the clock is pinned (Date only; timers run) and each test answers Open-Meteo itself.
- */
 test.use({ hubDisplay: "live" });
 
-/** A moment in Hanoi (+07:00 all year). */
 const hanoi = (hm: string) => new Date(`2026-10-08T${hm}:00+07:00`);
 
 async function weather(page: Page, condition: keyof typeof WMO, status = 200) {
   await page.route(OPEN_METEO, (route) =>
     status === 200
       ? fulfillWeather(route, condition, 24.6)
-      : // Open-Meteo's per-IP limit (what Render's shared IP hit every time).
-        route.fulfill({
+      : route.fulfill({
           status,
           headers: OPEN_METEO_CORS,
           json: { error: true, reason: "Minutely API request limit exceeded." },
@@ -38,7 +32,6 @@ const chip = (page: Page) => page.getByRole("button", { name: /°C|Thời tiết
 
 test.describe("live sky", () => {
   const CASES = [
-    // [time, condition, data-sky, data-clouds, chip text, overlay parts]
     ["10:00", "clear", "day", "none", "Trời quang", []],
     ["10:00", "partly_cloudy", "day", "some", "Ít mây", []],
     ["10:00", "cloudy", "day", "full", "Nhiều mây", []],
@@ -80,7 +73,6 @@ test.describe("live sky", () => {
     await weather(page, "fog");
     await page.goto("/play");
     await expect(page.locator("main")).toHaveAttribute("data-sky", "night");
-    // --color-scene declared on :root resolved there, so the fog always mixed the day sky.
     const { fog, cloud } = await page.locator(".weather-fog").evaluate((el) => {
       const paint = (parent: Element, colour: string) => {
         const probe = document.createElement("div");
@@ -114,7 +106,6 @@ test.describe("live sky", () => {
             el.getAnimations({ subtree: true }).filter((a) => a.playState === "running").length,
         );
     expect(await running()).toBeGreaterThan(0);
-    // Measuring idleness needs time to pass; no state is being waited for here.
     await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 3000)));
     expect(await frames()).toBe(before);
     expect(await running()).toBeGreaterThan(0);
@@ -140,7 +131,6 @@ test.describe("live sky", () => {
     });
     expect(keyframes.length).toBeGreaterThan(2);
     expect(Math.max(...keyframes.map((k) => k.opacity))).toBeLessThanOrEqual(0.08);
-    // Rises (an opacity going up) per second, over any 1 s window of the cycle.
     const rises = keyframes
       .slice(1)
       .filter((k, i) => k.opacity > (keyframes[i]?.opacity ?? 0))
@@ -173,7 +163,7 @@ test.describe("live sky", () => {
     page,
     consoleErrors,
   }) => {
-    test.slow(); // a re-bake, a reload and a walk to Lan on software WebGL
+    test.slow();
     await page.clock.setFixedTime(hanoi("21:00"));
     await mockApi(page);
     await weather(page, "rain");
@@ -195,7 +185,7 @@ test.describe("live sky", () => {
     await expect(main).toHaveAttribute("data-sky", "day");
     await expect(main).toHaveAttribute("data-clouds", "none");
     await expect(page.locator(".weather-layer")).toHaveCount(0);
-    await expect(button).toBeVisible(); // still the real weather
+    await expect(button).toBeVisible();
 
     await page.keyboard.press("Escape");
     await expect(popover).toBeHidden();
@@ -205,11 +195,8 @@ test.describe("live sky", () => {
     await expect(main).toHaveAttribute("data-sky", "day");
     await expect(page.locator(".weather-layer")).toHaveCount(0);
 
-    // A conversation closes the popover (it would sit over the dialog in the top layer).
     await chip(page).click();
     await expect(popover).toBeVisible();
-    // No pointerdown: a real click outside light-dismisses the popover, and below sm the open
-    // popover covers the badge. This proves the store's dialog closes it, on both projects.
     await page.locator('[data-badge="lan"]').dispatchEvent("click");
     await expect(page.getByRole("dialog", { name: "Cô Lan" })).toBeVisible();
     await expect(popover).toBeHidden();
@@ -239,7 +226,6 @@ test.describe("live sky", () => {
     test.slow();
     await page.clock.setFixedTime(hanoi("21:00"));
     await mockApi(page);
-    // Held until the scene is idle: a slow network answers late (within FETCH_TIMEOUT_MS, 60 s).
     let answer: () => void = () => undefined;
     const held = new Promise<void>((resolve) => (answer = resolve));
     await page.route(OPEN_METEO, async (route) => {
@@ -272,7 +258,6 @@ test("lets the page fetch Open-Meteo and nothing else outside the site (CSP)", a
     .split(";")
     .map((directive) => directive.trim().split(/\s+/))
     .find(([name]) => name === "connect-src");
-  // An API on another origin (VITE_API_BASE_URL) may be listed too; e2e builds without one.
   expect(connect?.slice(1)).toEqual(["'self'", "https://api.open-meteo.com"]);
 });
 
@@ -319,7 +304,6 @@ test.describe("weather chip in the HUD", () => {
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
       ).toBe(false);
-      // The popover fits the narrow screen too.
       await chip(page).click();
       const popover = await page.locator("#hub-weather").boundingBox();
       expect(popover).not.toBeNull();

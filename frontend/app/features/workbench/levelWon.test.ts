@@ -9,7 +9,6 @@ import { useLevelWon } from "./WorkbenchPage";
 
 const level = testEnv("chunk-tuning").level;
 
-/** A finished run as the bench holds it; only the fields the world flag reads. */
 function finished(stars: number, scope?: RunView["scope"]): RunView {
   return {
     runId: "r1",
@@ -47,8 +46,6 @@ describe("the world flag of a level", () => {
     expect(renderHook(() => useLevelWon(level, finished(0))).result.current).toBe(false);
   });
 
-  // A recorded run carries the stars of whoever recorded it, and a sample run earns none:
-  // neither is the player's result, so neither may take the poster down.
   it("ignores the stars of a recorded run or a sample run", () => {
     expect(renderHook(() => useLevelWon(level, finished(3, "da_ghi"))).result.current).toBe(false);
     expect(renderHook(() => useLevelWon(level, finished(3, "mau"))).result.current).toBe(false);

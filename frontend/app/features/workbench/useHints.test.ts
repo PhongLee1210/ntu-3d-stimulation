@@ -59,11 +59,10 @@ describe("useHints", () => {
   });
 
   it("walks the ladder to the worked example once the gate opens", () => {
-    // Pool 2 after a failed sample run: less than the 3 another sample run costs (X28).
     const { result } = hook(failedSample("r1"), "cfg-a", 2);
     act(() => result.current.openNext());
     expect(result.current.book.targets.s1?.opened).toBe(1);
-    act(() => result.current.openNext()); // no look yet
+    act(() => result.current.openNext());
     expect(result.current.book.targets.s1?.opened).toBe(1);
     act(() => result.current.markLook());
     act(() => result.current.openNext());
@@ -75,8 +74,6 @@ describe("useHints", () => {
   });
 
   it("keeps hint 3 shut while the pool still pays for another attempt", () => {
-    // 5 calls cover another sample run (3), which is what a failed sample run is priced at;
-    // priced as a star run (10), the pool would wrongly read as spent.
     const { result } = hook(failedSample("r1"), "cfg-a", 5);
     act(() => result.current.openNext());
     act(() => result.current.markLook());

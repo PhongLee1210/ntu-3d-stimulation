@@ -7,17 +7,6 @@ import { gradeSlip, type Slip } from "./guess";
 import type { CaseView, RunView } from "./run";
 import type { Graph } from "./schema";
 
-/**
- * "Rút kinh nghiệm" (N20): a four-line card closing the run.
- *
- * Lines 1-2 are auto-filled from the slip's own grade (gradeSlip) -- no new typing, which is
- * the point of making them automatic. Line 3 reads back which reason the player picked from
- * the diagnosis menu, by the option's own text. Line 4 offers one enum pick for the next
- * attempt, never free text, so a later count of what players try (T18, not built here) has a
- * closed set to count over.
- *
- * Text only: no `Viz`, no source stamp, no second `aria-live` region.
- */
 export function Debrief({
   env,
   run,
@@ -30,10 +19,8 @@ export function Debrief({
   env: Env;
   run: RunView;
   slip: Slip | null;
-  /** The bench as it stands, for line 4's enumeration of what can still be turned. */
   graph: Graph;
   ask: { c: CaseView | null; menu: { options: readonly [string, ...string[]] } } | null;
-  /** The stable index the player chose in the reason menu; null before they answer. */
   whyIndex: number | null;
   onPick: (extras: { why?: number; next?: NextPick }) => void;
 }): ReactElement | null {

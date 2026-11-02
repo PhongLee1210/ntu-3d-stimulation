@@ -47,7 +47,6 @@ describe("runReducer", () => {
     expect(run?.cases.every((c) => c.state === "graded")).toBe(true);
     expect(run?.score).toBeDefined();
     expect(run?.report?.diagnosis).toBeDefined();
-    // Per-case tokens are the sum of that case's step.finished tokens.
     for (const c of run?.cases ?? []) {
       const sum = reference
         .filter((f) => f.event === "step.finished")
@@ -225,9 +224,7 @@ describe("blockState (N6)", () => {
     expect(blockState("active", going, base)).toBe("running");
     expect(blockState("active", ran, base)).toBe("passed");
     expect(blockState("done", { ...ran, status: "timeout" }, base)).toBe("error");
-    // The answer board of a failed case: the step finished, the answer is wrong.
     expect(blockState("done", ran, { ...base, failedAnswer: true })).toBe("error");
-    // A finished run never reached this step (cancelled, or skipped by the server).
     expect(blockState("done", undefined, base)).toBe("idle");
   });
 
@@ -276,13 +273,10 @@ describe("caseModel", () => {
   });
 
   it("says when the answer came from the replay cache rather than a call", () => {
-    // §8.6: a cached answer inside a real run is not a call this run made, and the two must not
-    // read the same -- the fallback count depends on telling them apart.
     expect(caseModel(withLlm("gemini-3.5-flash-lite", true))?.replayed).toBe(true);
   });
 
   it("has no model for a case that never reached the model", () => {
-    // A hidden case on a recorded run keeps only case.graded, and a skipped case has no llm fact.
     const bare = { ...withLlm("x", false), steps: {} };
     expect(caseModel(bare)).toBeNull();
   });
@@ -326,21 +320,16 @@ describe("fallbackAnswers", () => {
   });
 
   it("counts a cached fallback answer too: the grade is read off that answer either way", () => {
-    // engine-v0.2 §663 replays a fallback's old answer. It was not a call this run made -- the
-    // "lời gọi AI" line says that -- but star 2 is still being judged on its token count.
     const r = run("gemini-3.5-flash-lite", [caseWith("gemini-3.1-flash-lite", true)]);
     expect(fallbackAnswers(r)).toEqual({ fallback: 1, answered: 1 });
   });
 
   it("leaves a case that got no answer out of both numbers", () => {
-    // Otherwise a quota-exhausted run reads as "0/10 do model dự phòng", which measures the
-    // denominator rather than the run.
     const r = run("m1", [caseWith("m1"), caseWith(null), caseWith(null)]);
     expect(fallbackAnswers(r)).toEqual({ fallback: 0, answered: 1 });
   });
 
   it("claims no fallback when the run never said which model is primary", () => {
-    // A recorded run exported before the field existed: unknown, so assert nothing.
     const r = run(undefined, [caseWith("whatever")]);
     expect(fallbackAnswers(r)).toEqual({ fallback: 0, answered: 1 });
   });
@@ -372,8 +361,6 @@ describe("outTokenSpread", () => {
   const run = (cases: CaseView[]) => ({ cases }) as unknown as RunView;
 
   it("reports the low and the high, because the spread is the point", () => {
-    // frontend-architecture §8.4: the same L3 prompt answered in 74 and in 528 output tokens.
-    // An average of 301 would hide exactly what the learner is meant to see.
     expect(outTokenSpread(run([answered(74), answered(300), answered(528)]))).toEqual({
       low: 74,
       high: 528,
@@ -382,7 +369,6 @@ describe("outTokenSpread", () => {
   });
 
   it("leaves a case that never reached the model out of the spread", () => {
-    // Its zero is not a short answer; it is no answer, and it would drag the low to nothing.
     expect(outTokenSpread(run([answered(74), skipped(), skipped()]))).toEqual({
       low: 74,
       high: 74,
@@ -402,7 +388,6 @@ describe("outTokenSpread", () => {
 
 describe("a run the daily cap cut short", () => {
   const short = parseSse(readText("e2e", "data", "run-l1-short.sse"));
-  /** Rewrite the nth case.graded frame into the shape the engine sends when the cap is hit. */
   const capAt = (n: number) => {
     let seen = 0;
     return short.map((f) => {
@@ -424,8 +409,6 @@ describe("a run the daily cap cut short", () => {
   });
 
   it("knows the run was cut short by the server's quota, not by the player's budget", () => {
-    // §3.3: a case skipped by the player's own per-case budget is an ordinary failure; only a
-    // case the DAILY cap skipped exempts the run from overwriting the stars.
     expect(cappedRun(replay(capAt(2)))).toBe(true);
     const ownBudget = short.map((f) => {
       if (f.event !== "case.graded") return f;
@@ -484,16 +467,11 @@ describe("sampleVerdict: the gate the star run waits behind (N2)", () => {
     expect(sampleVerdict(replay([started(), done(2)]))).toBeNull();
   });
 
-  // A reconnect can leave a gap: run.finished arrives, one case.graded never did. An absent
-  // grade is not a pass -- reading it as one would spend the star run's calls on a gate that
-  // was never actually cleared.
   it("will not open the star run on a case it never saw graded", () => {
     const run = replay([started("mau"), graded(2, "v01", true), graded(3, "v02", true), done(4)]);
     expect(sampleVerdict(run)).toBe("failed");
   });
 
-  // §3.3: a run the server's own quota cut short is not the player's attempt. Reading its
-  // unrun case as a failure would blame them for the server's day.
   it("blames nobody when the server's daily cap skipped a sample case", () => {
     expect(sampleVerdict(sample([true, true, true], "daily_cap"))).toBe("capped");
   });

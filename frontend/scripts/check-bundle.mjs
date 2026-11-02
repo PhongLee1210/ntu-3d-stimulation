@@ -1,12 +1,3 @@
-// Enforces the bundle budgets of the build brief §5 from the Vite manifest (never by
-// guessing chunk names):
-//   - the /play route adds at most 300 kB of gzipped JS on top of the app shell
-//     (three + react-three-fiber + scene code included);
-//   - no chunk the landing page loads contains three.js;
-//   - the workbench route (/play/:zoneId/:levelId) adds at most 120 kB of gzipped JS on top of
-//     the app shell and none of its chunks contains three.js (workbench-v0.1 §10).
-// Writes build/bundle-report.json (read by the e2e suite) and removes the manifest from the
-// deployable output.
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,7 +5,6 @@ import { gzipSync } from "node:zlib";
 
 const PLAY_BUDGET_BYTES = 300_000;
 const WORKBENCH_BUDGET_BYTES = 120_000;
-// Strings only three.js itself prints; used to prove where three ended up.
 const THREE_SIGNATURE = "THREE.WebGLRenderer";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -24,7 +14,6 @@ const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 
 const keysWhere = (test) => Object.keys(manifest).filter(test);
 
-/** Files reachable from `keys` through static imports (and dynamic ones when asked). */
 function closure(keys, { dynamic = false } = {}) {
   const seen = new Set();
   const files = new Set();

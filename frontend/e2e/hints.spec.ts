@@ -4,8 +4,6 @@ import { frame, sseText } from "../app/features/workbench/test-fixtures";
 
 import { expect, mockWorkbenchApi, sse, test } from "./fixtures";
 
-// roadmap-v0.4 B4a: the hint ladder (N16) and the first-touch lines (N17).
-
 const L1 = "/play/library/grounded-citation";
 
 test("opens hint 1 on request and hint 2 only after a free look", async ({
@@ -21,18 +19,15 @@ test("opens hint 1 on request and hint 2 only after a free look", async ({
   await expect(hints.getByText("Gợi ý nhắm vào sao 1.", { exact: false })).toBeVisible();
   await hints.getByRole("button", { name: "Xem gợi ý 1" }).click();
   await expect(hints.getByText("câu #1", { exact: false }).first()).toBeVisible();
-  // No dead button: what opens hint 2 is said in words.
   await expect(hints.getByRole("button", { name: "Xem gợi ý 2" })).toHaveCount(0);
   await expect(hints.getByText("Gợi ý 2 mở sau khi bạn nhìn thêm", { exact: false })).toBeVisible();
 
-  // The hint's own pointer is a look: it puts case #1 on the bench.
   await hints.getByRole("button", { name: "Xem câu #1" }).click();
   await expect(page.getByText("Đang theo dõi: câu #1", { exact: false })).toBeVisible();
   await hints.getByRole("button", { name: "Xem gợi ý 2" }).click();
   await expect(hints.locator('[data-hint="2"]')).toBeVisible();
   await expect(hints.getByRole("button", { name: /Xem gợi ý/ })).toHaveCount(0);
 
-  // The log the pilot reads: both hints, in order, aimed at star 1.
   const log = await page.evaluate(
     () =>
       (
@@ -102,8 +97,6 @@ test("opens the worked example once the pool cannot pay for another try (X28)", 
   page,
 }) => {
   await mockWorkbenchApi(page, { events: () => sse.sample(false) });
-  // The recorded sample answers come from the replay cache, so the player's own pool does not
-  // move; the server's does. After the run it has 2 calls left: less than a sample run's 3.
   let asked = 0;
   await page.route(
     (url) => url.pathname === "/api/quota",
@@ -131,7 +124,6 @@ test("opens the worked example once the pool cannot pay for another try (X28)", 
   await hints.getByRole("button", { name: "Xem gợi ý 1" }).click();
   await hints.getByRole("button", { name: "Xem câu #1" }).first().click();
   await hints.getByRole("button", { name: "Xem gợi ý 2" }).click();
-  // Hint 2 is open and no look has followed it: the gate says what it waits for, with the count.
   await expect(hints.getByText("Gợi ý 3 là lời giải mẫu.", { exact: false })).toBeVisible();
   await expect(hints.getByText("(hiện là 1)", { exact: false })).toBeVisible();
 
@@ -154,7 +146,6 @@ test("keeps the worked example shut while the pool still pays for a try", async 
   await expect(hints.getByText("Gợi ý 3 là lời giải mẫu.", { exact: false })).toBeVisible();
 });
 
-/** One review case run as the variant after hint 3 (N16), passing or not. */
 const variantRun = (passed: boolean) =>
   sseText([
     frame(1, "run.started", {
@@ -227,9 +218,7 @@ test("runs the variant after the worked example, and keeps the ladder (N16)", as
     page.getByText("Một lần bảo lưu được tối đa bao lâu", { exact: false }).first(),
   ).toBeVisible();
   await expect(page.locator('[data-variant="passed"]')).toBeVisible();
-  // The ladder stays on the attempt the variant came from, worked example included.
   await expect(hints.locator('[data-hint="3"]')).toBeVisible();
-  // The variant is paid by the class reserve: the player's own pool did not move.
   await expect(page.getByText("Còn 2 lời gọi hôm nay", { exact: false })).toBeVisible();
   const seen = await page.evaluate(() =>
     window.localStorage.getItem("vg.variants.v1.grounded-citation"),

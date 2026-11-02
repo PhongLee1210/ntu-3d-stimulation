@@ -6,13 +6,6 @@ import { binFill, droppedRanks } from "./bin";
 import { BIN_VI, DROPPED_VI, fmt, TOKENS_VI } from "./copy";
 import { Viz } from "./Viz";
 
-/**
- * Thùng Context: the pack as a bin filling toward its budget line, with the lid refusing to
- * close when the pack asked for more than the budget allows (gameplay-direction §3).
- *
- * Plain DOM, not canvas: a bin is a handful of rectangles, and divs are already reachable,
- * already readable by a screen reader, and already testable without a 2D context.
- */
 export function ContextBin({
   tokens,
   included,
@@ -23,9 +16,7 @@ export function ContextBin({
   tokens: { docs: number; query: number; total: number; budget: number };
   included: readonly string[];
   dropped: readonly string[];
-  /** The list the packer was handed: where a cut passage stood is a join against it. */
   ranked?: readonly { chunk_id: string; rank: number }[];
-  /** What the provider charged for this case's whole prompt; null until its step finishes. */
   promptTokens: number | null;
 }): ReactElement {
   const fill = binFill(tokens);
@@ -64,10 +55,6 @@ export function ContextBin({
       }
     >
       <div role="img" aria-label={label} className="max-w-80">
-        {/* The part that will not fit, drawn above the rim so a lid that shuts and one that
-            does not are different pictures -- overflow-hidden made them identical. The strip
-            is capped at a bin's worth: past that it says "some of this does not fit", which is
-            true at any size, and the figure itself is printed below. */}
         {fill.overflow && (
           <svg
             data-overflow={fill.overPct}
@@ -84,8 +71,6 @@ export function ContextBin({
             />
           </svg>
         )}
-        {/* The bin, seen from the side. The viewBox is 100 tall, so a band's height attribute
-            is its share of the budget -- no style attribute anywhere (§8.1, CSP). */}
         <svg
           data-bin=""
           aria-hidden="true"
@@ -110,15 +95,11 @@ export function ContextBin({
             className="fill-accent-tint"
           />
         </svg>
-        {/* Each passage that made it in, counted along the bin's floor. */}
         <ul className="-mt-4 flex flex-wrap gap-0.5 px-1">
           {included.map((id) => (
             <li key={id} data-passage="" className="size-2 rounded-xs bg-brand" />
           ))}
         </ul>
-        {/* What the lid cut off, on the floor under the bin, in cut order. Each says where it
-            stood -- a passage the ranked list never named says it has no rank rather than
-            borrowing its position in the array. */}
         {lost.pieces.length > 0 && (
           <ul className="mt-2 flex flex-wrap gap-1 border-t border-dashed border-line pt-2">
             {lost.pieces.map((piece) => (
@@ -138,9 +119,6 @@ export function ContextBin({
         {fmt(tokens.total)}/{fmt(tokens.budget)} token · tài liệu {fmt(tokens.docs)} · câu hỏi{" "}
         {fmt(tokens.query)} <span className="text-fg-muted">({TOKENS_VI.bin})</span>
       </p>
-      {/* The second of §8.4's two counts. Its own line, not a second band: the provider counts
-          the whole prompt and the bin only what it packed, so side by side they would read as
-          one quantity measured twice. */}
       <p className="mt-1 max-w-prose text-sm text-fg-muted tabular-nums">
         {promptTokens === null ? TOKENS_VI.noneYet : TOKENS_VI.prompt(fmt(promptTokens))}
       </p>

@@ -2,10 +2,6 @@ import { Component, type ReactNode } from "react";
 
 import { failScene } from "./sceneLoad";
 
-/**
- * Keeps the hub usable when the 3D scene cannot start (no WebGL, chunk failed to load):
- * the HUD and the zone list still work, only the picture is replaced by a note.
- */
 export class SceneBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   override state = { failed: false };
 

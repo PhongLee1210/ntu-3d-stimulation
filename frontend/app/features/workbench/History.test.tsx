@@ -26,7 +26,6 @@ const mark = (at: number, stars: 0 | 1 | 2 | 3, verdicts: [number, boolean][]): 
   cases: verdicts.map(([n, passed]) => ({ n, role: "visible" as const, passed })),
 });
 
-/** Every cell of every row, as the player reads it: the state and the words beside it. */
 const grid = () =>
   [...document.querySelectorAll("[data-run-row]")].map((row) =>
     [...row.querySelectorAll("[data-cell]")].map(
@@ -51,8 +50,6 @@ describe("History", () => {
         ]}
       />,
     );
-    // Run 2 broke case 2; run 1 had it passing. A transposed matrix or a flipped row order
-    // changes this grid.
     expect(grid()).toEqual([
       ["pass:Đạt", "fail:Trượt"],
       ["pass:Đạt", "pass:Đạt"],
@@ -73,8 +70,6 @@ describe("History", () => {
       />,
     );
     expect(grid()[0]).toEqual(["pass:Đạt", "skip:Không chạy"]);
-    // And it must not LOOK like one either: the strip is read by colour first. This fixture
-    // has no failing case, so compare the two states it does have.
     const [passed, skipped] = [...document.querySelectorAll("[data-cell]")];
     expect(skipped?.className).not.toContain("danger");
     expect(skipped?.className).not.toBe(passed?.className);
@@ -105,7 +100,6 @@ describe("History", () => {
   });
 
   it("offers no form toggle, because the strip is already the table", () => {
-    // A button that swapped a table for the same table would be a control that does nothing.
     viewport(false);
     render(<History runs={[mark(1, 1, [[1, true]])]} />);
     expect(screen.queryByRole("button", { name: /Xem dạng/ })).toBeNull();
@@ -126,9 +120,7 @@ describe("History", () => {
     );
     const heads = [...document.querySelectorAll("thead th")].map((h) => h.textContent);
     expect(heads).toEqual(["Lượt", "Sao", "Câu #1", "Câu #2"]);
-    // The row header identifies the row; "1/3 sao" alone would read like the screen's headline.
     expect(document.querySelector("tbody th")?.textContent).toBe("Lượt 1");
-    // The numeral only: "1/3 sao" would collide with the results headline's own wording.
     expect(document.querySelector("tbody td")?.textContent).toBe("1/3");
     expect(document.body.textContent).not.toContain("1/3 sao");
   });
@@ -157,7 +149,6 @@ describe("duplicating a remembered configuration", () => {
     viewport(false);
     const picked: string[] = [];
     render(<History runs={three} onDuplicate={(m) => picked.push(m.body)} />);
-    // Rows are newest first, so row 2 is the middle mark. An off-by-one lands on 9 or 3.
     fireEvent.click(screen.getByRole("button", { name: "Nhân bản cấu hình của lượt 2" }));
     expect(picked).toEqual(['{"top_k":6}']);
   });
@@ -183,8 +174,6 @@ describe("duplicating a remembered configuration", () => {
 
 describe("a strip wider than the screen", () => {
   it("scrolls inside its own region instead of pushing the page sideways", () => {
-    // L1 runs ten cases, so the table is thirteen columns. Without this the table overflows a
-    // 375 px screen and lies over the case grid above it.
     viewport(true);
     const ten = mark(
       1,
@@ -200,8 +189,6 @@ describe("a strip wider than the screen", () => {
 
 describe("the table at the width that squeezes it", () => {
   it("never lets the table shrink below its natural width", () => {
-    // w-max: without it table-layout auto compresses every column to its min-content inside the
-    // scroller, which breaks a button's label onto four lines in a fixed-height row.
     viewport(true);
     render(<History runs={[mark(1, 1, [[1, true]])]} />);
     expect(document.querySelector("table")?.className).toContain("w-max");

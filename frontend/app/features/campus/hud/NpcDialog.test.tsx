@@ -5,7 +5,6 @@ import { NPC_ROLES } from "../npcs";
 import { siteInfo, type SiteInfo } from "../sites";
 import { NpcDialog } from "./NpcDialog";
 
-// A zone not open yet: the market is the one still coming once the watchtower opened.
 const watchtower: SiteInfo = { ...siteInfo(null).watchtower, status: "coming_soon" };
 
 function show(props: { visits?: number; site?: SiteInfo | null; who?: "guard" | "registrar" }) {
@@ -26,7 +25,6 @@ function show(props: { visits?: number; site?: SiteInfo | null; who?: "guard" | 
 }
 
 beforeEach(() => {
-  // jsdom has neither a modal <dialog> nor ResizeObserver.
   Object.assign(HTMLDialogElement.prototype, {
     showModal(this: HTMLDialogElement) {
       this.open = true;
@@ -54,7 +52,6 @@ describe("NpcDialog (npc-cast v0.4 §7.2)", () => {
     expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Role name");
     expect(screen.getByText(NPC_ROLES.guard.subtitle)).toBeTruthy();
     for (const line of NPC_ROLES.guard.greeting) expect(screen.getByText(line)).toBeTruthy();
-    // The zone is not open yet: nothing to enter.
     expect(screen.queryByRole("button", { name: /^Vào / })).toBeNull();
     const later = screen.getByRole("button", { name: "Để sau" });
     expect(document.activeElement).toBe(later);

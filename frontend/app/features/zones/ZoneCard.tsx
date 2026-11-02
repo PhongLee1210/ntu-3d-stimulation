@@ -7,13 +7,10 @@ import { ConceptChips, ZONE_BAR, ZoneStatusText } from "./ui";
 
 interface ZoneCardProps {
   zone: ZoneSummary;
-  /** `full` (dialog) has the zone colour bar; `compact` (zone list) does not. */
   variant: "full" | "compact";
-  /** Actions shown under the card, e.g. "Vào Thư viện". */
   children?: ReactNode;
 }
 
-/** Zone summary from `GET /api/zones` (art §8.4). Borderless: it sits inside a panel. */
 export function ZoneCard({ zone, variant, children }: ZoneCardProps) {
   return (
     <article className={variant === "compact" ? "p-4" : undefined}>
@@ -32,7 +29,6 @@ export function ZoneCard({ zone, variant, children }: ZoneCardProps) {
   );
 }
 
-/** API failure inside a hub panel: the scene keeps working (art §8.4). */
 export function ZonesErrorNotice({
   onRetry,
   className = "",

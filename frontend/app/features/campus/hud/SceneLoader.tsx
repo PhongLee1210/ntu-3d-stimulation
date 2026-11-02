@@ -14,7 +14,6 @@ import {
 } from "./blueprint";
 import { APPEAR_MS, FADE_MS, progress, sceneLoad, STAGE, STEPS, useSceneLoad } from "./sceneLoad";
 
-/** One label per stage (sceneLoad STAGE): the step being waited for. */
 export const LABELS = [
   "Đang mở sa bàn",
   "Đang tải bộ dựng 3D",
@@ -27,10 +26,6 @@ export const LABELS = [
 const SLOW =
   'Hôm nay sa bàn hơi nặng. Trong lúc chờ, mọi việc vẫn làm được qua nút "Các khu" ở góc trên.';
 
-/**
- * Cô Lan's tips (art §8.6): a correct AI fact, at most 120 characters, tied to a zone or lesson.
- * Only fictional characters speak.
- */
 export const TIPS = [
   "Model không tự biết quy chế của trường mình. Phải đưa đúng trang vào ngữ cảnh thì nó mới trích được.",
   'Câu trả lời tốt đôi khi là "tài liệu không nói". Mình quý trợ lý biết dừng hơn trợ lý bịa cho đủ câu.',
@@ -46,21 +41,15 @@ export const TIPS = [
   "Hội thoại càng dài, mỗi lượt càng gửi lại nhiều lịch sử. Tóm tắt phần cũ giúp ngữ cảnh gọn mà vẫn giữ ý chính.",
 ] as const;
 
-/** Cô Lan's line in the pre-rendered shell, which cannot know which tip is next. */
 export const GREETING = "Chào bạn, mình đang bày sa bàn ra đây.";
 
 const SLOW_MS = 10_000;
 const ANNOUNCE_MS = 1000;
 const TIP_MS = 8000;
 const TICK_MS = 100;
-/**
- * Once the scene exists the main thread freezes (geometry, first frame) and starved timers fire
- * at the handover: the card keeps its content from then on, so it never changes in the fade.
- */
 const frozen = () => sceneLoad.getState().stage >= STAGE.build;
 
 const TIP_KEY = "vg-tip";
-/** The tip the next loader starts with, remembered per viewer so each visit shows unseen ones. */
 let nextTip: number | undefined;
 function firstTip(): number {
   if (nextTip === undefined) {
@@ -68,7 +57,7 @@ function firstTip(): number {
       const stored = Number(localStorage.getItem(TIP_KEY));
       nextTip = Number.isInteger(stored) && stored > 0 ? stored % TIPS.length : 0;
     } catch {
-      nextTip = 0; // storage blocked: rotate within this page session only
+      nextTip = 0;
     }
   }
   return nextTip;
@@ -76,12 +65,6 @@ function firstTip(): number {
 
 const ROOT = "pointer-events-none absolute inset-0 z-15 overflow-hidden";
 
-/**
- * "Sa bàn đang dựng" (art §8.4): from the first paint of /play until the first WebGL frame, a
- * pale diorama of the campus builds itself on the sky colour, exactly where the 3D scene will
- * appear, with a card naming the real loading step and a tip from cô Lan. `shell` is the
- * pre-rendered version (HydrateFallback): fixed step 1, the empty board framed in CSS, no store.
- */
 export function SceneLoader({ shell = false }: { shell?: boolean }) {
   if (shell) {
     return (
@@ -104,9 +87,7 @@ export function SceneLoader({ shell = false }: { shell?: boolean }) {
   return <LiveLoaderGate />;
 }
 
-/** Unmounts the live loader once it has left, so none of its timers or listeners outlive it. */
 function LiveLoaderGate() {
-  // A failed scene stays failed for the page session: later entries skip the loader.
   const [gone, setGone] = useState(() => sceneLoad.getState().failed);
   return gone ? null : <LiveLoader onGone={() => setGone(true)} />;
 }
@@ -120,21 +101,17 @@ function LiveLoader({ onGone }: { onGone: () => void }) {
   const lifted = useHub((s) => !s.dialog && s.nearby !== null);
   const { landmark } = useActiveTheme().campus;
 
-  // Read once per entry, like ?debug=frames: keep the diorama at 50% over the live scene.
   const [debug] = useState(
     () => new URLSearchParams(window.location.search).get("debug") === "loader",
   );
   const [focus] = useState(() => entryFocus(window.location.search));
-  // The pre-rendered board was on screen: the diorama replaces it in place, without fading in.
   const [afterShell] = useState(() => document.querySelector(".bp-shell") !== null);
-  // A loader remounted after hydration continues the shell's appear timing (art §8.4).
   const [delay] = useState(() =>
     Math.max(0, APPEAR_MS - (performance.now() - sceneLoad.getState().begun)),
   );
 
   const done = stage >= STAGE.done || failed;
   const leaving = done && !debug;
-  /** Done after the appear delay: the loader was seen, so it fades; otherwise it never shows. */
   const seen = since - begun >= APPEAR_MS;
 
   useEffect(() => {
@@ -143,17 +120,12 @@ function LiveLoader({ onGone }: { onGone: () => void }) {
     return () => window.clearTimeout(timer);
   }, [leaving, seen, onGone]);
 
-  // Diorama progress, as the highest piece threshold reached (re-renders only on a change).
   const pieces = useMemo(() => blueprintPieces(landmark, focus), [landmark, focus]);
   const thresholds = useMemo(
     () => [...new Set(pieces.map((p) => p.at))].sort((a, b) => a - b),
     [pieces],
   );
   const [ticked, setTicked] = useState(0);
-  // A signal draws everything owed to it in the same render, in its final state: the main
-  // thread may freeze right after (the scene builds its geometry, then its first frame), and
-  // SVG animations would stay on their first keyframe meanwhile (buildings flat, trees dots).
-  // Only pieces the ticker reveals within a stage animate.
   const floor = thresholds.findLast((at) => at <= progress(stage, 0, false)) ?? 0;
   const complete = done || reduced;
   useEffect(() => {
@@ -165,8 +137,6 @@ function LiveLoader({ onGone }: { onGone: () => void }) {
     return () => window.clearInterval(id);
   }, [complete, stage, since, thresholds]);
 
-  // One polite live region: a step is announced once it has lasted a second, the slow notice
-  // once at 10 s; fast steps are never announced.
   const [said, setSaid] = useState("");
   const [slow, setSlow] = useState(false);
   useEffect(() => {
@@ -195,9 +165,7 @@ function LiveLoader({ onGone }: { onGone: () => void }) {
     nextTip = (tip + 1) % TIPS.length;
     try {
       localStorage.setItem(TIP_KEY, String(nextTip));
-    } catch {
-      // A per-viewer convenience only.
-    }
+    } catch {}
   }, [tip]);
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -206,7 +174,6 @@ function LiveLoader({ onGone }: { onGone: () => void }) {
     return () => window.clearInterval(id);
   }, []);
 
-  // The canvas fills the same box (absolute inset-0 of <main>), so the viewBox matches it.
   const root = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ width: number; height: number } | null>(null);
   useLayoutEffect(() => {
@@ -222,7 +189,6 @@ function LiveLoader({ onGone }: { onGone: () => void }) {
   }, []);
 
   if (leaving && !seen) return null;
-  // ?debug=loader keeps the diorama alone at 50% over the live scene, to check the alignment.
   const state = leaving
     ? "bg-scene animate-leave"
     : done
@@ -234,7 +200,6 @@ function LiveLoader({ onGone }: { onGone: () => void }) {
       ref={root}
       data-scene-loader=""
       className={`${ROOT} ${state}`}
-      // Client-only (CSSOM, allowed by style-src 'self'); never in pre-rendered HTML.
       style={delay > 0 && !leaving ? { animationDelay: `${delay}ms` } : undefined}
     >
       {box && (
@@ -246,7 +211,6 @@ function LiveLoader({ onGone }: { onGone: () => void }) {
         >
           {pieces.map((piece, i) => (
             <PieceShapes
-              // A fixed list: pieces never reorder for a given landmark and focus.
               key={i}
               piece={piece}
               state={
@@ -283,13 +247,11 @@ const PieceShapes = memo(function PieceShapes({ piece, state }: { piece: Piece; 
 function Card(props: {
   stage: number;
   tip: string;
-  /** Live tips slide in (art §7); the pre-rendered greeting is static. */
   live: boolean;
   slow: boolean;
   lifted: boolean;
 }) {
   const { stage, tip, live, slow, lifted } = props;
-  // Never over the HUD (top corners) nor the interact hint (bottom, shown on ?at= arrivals).
   const bottom = lifted
     ? "bottom-24"
     : "bottom-[max(1rem,env(safe-area-inset-bottom))] lg:bottom-6";
@@ -321,7 +283,6 @@ function Card(props: {
   );
 }
 
-/** Top vertices of the logo's five blocks (favicon.svg, Wordmark.tsx), in build order. */
 const BLOCKS = [
   [4, 3],
   [12, 3],
@@ -337,11 +298,6 @@ const topFace = (x: number, y: number) =>
   `M${x} ${y} ${x + 2} ${y + 1} ${x} ${y + 2} ${x - 2} ${y + 1}Z`;
 const DASH = { strokeWidth: 0.35, strokeDasharray: "0.7 0.5" } as const;
 
-/**
- * The logo tile, one block per real signal: solid blocks are done, dashed ones to come. The
- * block being waited for is its own HTML box, so its hover runs on the compositor and keeps
- * moving while the main thread builds the scene.
- */
 function StepMark({ stage }: { stage: number }) {
   const waited = BLOCKS[stage];
   return (
@@ -396,7 +352,6 @@ function StepMark({ stage }: { stage: number }) {
   );
 }
 
-/** Cô Lan: glasses, hair bun, cardigan and a book (art §5.8), in theme tokens. */
 function LanAvatar() {
   return (
     <span className="size-8 shrink-0 overflow-hidden rounded-full">

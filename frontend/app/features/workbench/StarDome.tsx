@@ -9,7 +9,6 @@ type RetrievedItem = Extract<Fact, { kind: "retrieved" }>["items"][number];
 const W = 320;
 const H = 170;
 
-/** "Điều 47 khoản 2, hạng 3, cosine 0,8" — the sentence a screen reader hears for one star. */
 function label(star: Star): string {
   const khoan = star.khoan.length > 0 ? ` khoản ${star.khoan.join(", ")}` : "";
   const stale = star.stale ? ", văn bản hết hiệu lực" : "";
@@ -17,12 +16,6 @@ function label(star: Star): string {
   return `Điều ${star.dieu}${khoan}, hạng ${star.rank}, cosine ${fmtCosine(star.score)}${gold}${stale}`;
 }
 
-/**
- * Vòm Sao (vom-sao-v0.1): the passages a search block pulled, drawn as a dome of stars with the
- * answer passage in `accent`. The canvas is the picture; the `sr-only` list beside it is the
- * same data as buttons, so the keyboard and a screen reader get every star and its real numbers.
- * Drawn once per data change — no animation frame loop (art §1.2 principle 6).
- */
 export function StarDome({
   items,
   goldChunks,
@@ -32,7 +25,6 @@ export function StarDome({
   items: readonly RetrievedItem[];
   goldChunks: readonly string[];
   goldRank: number | null;
-  /** False for a hidden or trap case: no gold star, whatever the payload carries. */
   showGold: boolean;
 }): ReactElement | null {
   const id = useId();
@@ -44,17 +36,13 @@ export function StarDome({
 
   useEffect(() => {
     const ctx = canvas.current?.getContext("2d");
-    if (!ctx) return; // jsdom has no 2D context; the sr-only list is still the record.
-    // The element is laid out in CSS pixels but the backing store is device pixels, or the
-    // 1px arc and the 11px rank labels blur on any 2x screen.
+    if (!ctx) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     if (canvas.current && canvas.current.width !== W * dpr) {
       canvas.current.width = W * dpr;
       canvas.current.height = H * dpr;
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // Every colour comes from the active theme pack; app.css carries the no-theme fallbacks,
-    // so no palette value is written down inside app/ (CLAUDE.md: brand data lives in themes).
     const css = getComputedStyle(canvas.current as Element);
     const token = (name: string) => css.getPropertyValue(name).trim();
     const ink = token("--vg-text");
@@ -66,7 +54,6 @@ export function StarDome({
     ctx.clearRect(0, 0, W, H);
     const px = (s: Star) => [s.x * W, H - s.y * H] as const;
 
-    // The dome's arc and the beam, flat strokes only: no glow, no gradient (art §1.3).
     ctx.strokeStyle = line;
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -92,7 +79,6 @@ export function StarDome({
     }
 
     if (dome.missingGold) {
-      // Outside the pull: a dashed tether to the rim rather than a star in a made-up place.
       ctx.setLineDash([3, 3]);
       ctx.strokeStyle = accent;
       ctx.beginPath();
@@ -108,7 +94,6 @@ export function StarDome({
 
   if (items.length === 0) return null;
 
-  // The answer passage exists but this block's ranking never reached it.
   const unranked = showGold && goldChunks.length > 0 && goldRank === null;
   const name =
     dome.missingGold || dome.stars.some((s) => s.gold)
@@ -119,8 +104,6 @@ export function StarDome({
 
   return (
     <div className="mt-2">
-      {/* The picture is the figure; the canvas is only the surface it is painted on, and
-          jsx-a11y is right that a canvas must not carry role="img" itself. */}
       <div role="img" aria-label={name} aria-describedby={`${id}-stars`}>
         <canvas
           ref={canvas}

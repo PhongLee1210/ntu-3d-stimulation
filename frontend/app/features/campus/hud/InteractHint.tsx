@@ -5,11 +5,6 @@ import { useHub } from "../store";
 
 export const HINT_BUTTON_ID = "hub-interact-hint";
 
-/**
- * What the player can do here. A real button (clicking = pressing E) for a person and
- * open buildings; plain text for buildings that are not open yet. The wrapper is a polite
- * live region, so screen readers hear each new target once, not every frame.
- */
 export function InteractHint({
   sites,
   onInteract,

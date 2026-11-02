@@ -1,9 +1,5 @@
 # ADR 0001: Frontend stack
 
-- **Trạng thái:** Đã chấp nhận (chủ dự án duyệt trong Phần 2)
-- **Ngày ghi:** 2026-10-07
-- **Liên quan:** [Đặc tả tổng hợp](../specs/2026-10-07-v-game-design.md), [ADR 0002](0002-theme-packs.md), [ADR 0003](0003-backend-stack.md)
-
 ## Bối cảnh
 
 - V-Game chạy trong trình duyệt, trên laptop của học viên, kể cả máy chỉ có GPU tích hợp.
@@ -38,8 +34,7 @@
 ## Phương án đã loại
 
 Tài liệu nguồn không ghi lại phép so sánh với các stack frontend khác. Các lựa chọn bị loại rõ trong quyết định:
+
 - **Render phía server cho các route game:** không dùng (`ssr: false`); chỉ landing page được prerender.
 - **Ánh sáng động tính lúc chạy:** thay bằng lighting bake để giữ ngân sách 60 FPS.
 - **Gọi AI đồng bộ trong vòng render:** bị cấm.
-
-Đề xuất gameplay (chờ duyệt) loại thêm physics Rapier và postprocessing trên GPU tích hợp.

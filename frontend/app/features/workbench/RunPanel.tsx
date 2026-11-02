@@ -43,13 +43,10 @@ export type RequestState =
   | { state: "sending"; key: string; body: string }
   | { state: "failed"; error: PostError; key: string; body: string };
 
-/** Issues summary: the client's count, or a 422's title. */
 export type Summary = { kind: "client" } | { kind: "server"; title: string };
 
-/** The player's "Dừng lượt chạy" for the run on show: sent, or the cancel POST failed. */
 export type StopState = "pending" | "failed" | null;
 
-/** Failures only an administrator can fix: running the same graph again cannot help. */
 const SERVER_SIDE = new Set(["llm_not_configured", "index_missing", "index_stale"]);
 
 interface RunPanelProps {
@@ -65,45 +62,27 @@ interface RunPanelProps {
   stop: StopState;
   followedId: string | null;
   backTo: string;
-  /** The guess slip draft for the next run (B1). */
   slip: Slip;
   onSlip: (next: Slip) => void;
   onOpen: () => void;
   onRetry: () => void;
   onRestore: () => void;
-  /** Puts the newest starred run's configuration back; null when no run has earned a star (N3). */
   backToPassing: (() => void) | null;
   onFocusSlot: (type: BlockType, param?: string) => void;
   onStop: () => void;
   onReconnect: () => void;
   onRerun: () => void;
-  /** A lost run: cancel it and go back to the bench without a new run. */
   onAbandon: () => void;
   onEdit: () => void;
   onFollow: (caseId: string) => void;
-  /** N4: play the level's recorded run. Free, and it needs no awake API. */
   onRecorded: () => void;
-  /** The recording could not be shown; the level still plays without it. */
   recordedFailed: boolean;
-  /** The day's pool of fresh AI calls and what it lets Mở ca do (§5.1). */
   quota: QuotaView;
-  /** This shift is the 3 samples alone: the pool did not cover the star run (§5.1). */
   samplesOnly: boolean;
-  /** Projector mode (`?chieu=1`): the room's guess by show of hands, the projector's pool. */
   projector: boolean;
-  /** Projector mode before "Mở kết quả": graded cases show as graded, not passed or failed (R4). */
   masked: boolean;
 }
 
-/**
- * The pool beside Mở ca (roadmap-v0.4 §5.1): what is left and when it refills, then what this
- * shift costs or why the button now offers less. "ước tính" stays until T1, since every server
- * counter lives in RAM and a Render restart zeroes it.
- */
-/**
- * R4: the room guesses by show of hands. Nothing to type or click -- the letters are big enough
- * to read from the back row, and the teacher counts. Only a sample question is ever shown (R8).
- */
 function HandRaise({ env }: { env: Env }) {
   const question = env.level.visible_cases[0]?.question;
   return (
@@ -166,12 +145,6 @@ export function RunPanel(props: RunPanelProps) {
       {isActive(run) && run ? <Running {...props} run={run} /> : <Editing {...props} />}
       {run && run.cases.length > 0 && (
         <>
-          {/* Outside the case table's own region, not in it: that region's first button is
-              the first case's row, and two specs read it that way. A control slipped in
-              above it silently becomes "the first button" instead.
-
-              Only once the run is over, too: while it is live the follow moves on its own,
-              and a control fighting the run for it would keep snatching the view back (N4). */}
           {!isActive(run) && !props.masked && (
             <Scrub cases={run.cases} followedId={props.followedId} onFollow={props.onFollow} />
           )}
@@ -188,10 +161,6 @@ export function RunPanel(props: RunPanelProps) {
   );
 }
 
-/**
- * An inline confirm (§8.4, §8.5): opening it focuses its question, so a screen reader reads it;
- * closing it (a button, or Escape anywhere in it) gives focus back to the button that opened it.
- */
 function useConfirm() {
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
@@ -241,7 +210,6 @@ function Editing({
     question,
     onKeyDown: onRestoreKey,
   } = useConfirm();
-  // Its own instance: two confirms that shared one state would both open at once.
   const {
     open: reverting,
     setOpen: setReverting,
@@ -254,7 +222,6 @@ function Editing({
   const typeOf = (node: string | null) => graph.nodes.find((n) => n.id === node);
   const sending = request.state === "sending";
   const failure = run?.phase === "failed" ? run.failure : undefined;
-  // The player's own stop is not an error: a neutral box, in the player's words.
   const stopped = failure?.code === "cancelled" && stop !== null;
 
   return (
@@ -295,7 +262,6 @@ function Editing({
         {level.case_counts.normal + level.case_counts.trap + level.case_counts.info} lời gọi). Cấu
         hình đã chạy rồi thì dùng kết quả đã lưu, không gọi lại.
       </p>
-      {/* Only after a finished run: after a failed one, running the same graph again is the fix. */}
       {body === lastBody && run?.phase === "finished" && (
         <p className="text-sm text-fg-muted">{sameGraphNote(run)}</p>
       )}
@@ -318,7 +284,6 @@ function Editing({
               const text = rich(issue.message_vi);
               const fix = fixFor(env, graph, issue);
               return (
-                // By position, like the slot's rows: the same line can come twice.
                 <li key={index} className="text-sm">
                   {node ? (
                     <button
@@ -368,9 +333,6 @@ function Editing({
         </div>
       )}
 
-      {/* Collapsed so the aside's resting height keeps Mở ca on the first screen at 1280x800
-          (§2.1). Locked while the graph is out: the slip leaves with this run. */}
-      {/* On the projector the room guesses by show of hands instead (R4): HandRaise. */}
       <details className="min-w-0 chieu:hidden">
         <summary className="min-h-11 cursor-pointer list-none text-sm font-semibold underline underline-offset-4">
           Đoán trước khi mở ca
@@ -409,10 +371,6 @@ function Editing({
               : RECORDED_VI.open}
       </button>
 
-      {/* Only before the player's own first run: after that the bench has something truer to
-          show than the starter's log, and a second "watch a run" button competes with it. With
-          the pool spent, the main button already is that button. */}
-      {/* R6: on the projector a sleeping API also brings it back, whatever ran before. */}
       {(run === null || (projector && !quota.awake)) && quota.mode !== "recorded" && (
         <div className="space-y-1">
           <button
@@ -464,7 +422,6 @@ function Editing({
                 setRestoring(false);
                 onRestore();
               }}
-              // Restoring mid-POST would reset the request and let a second POST out.
               disabled={sending}
               className={buttonClass("primary")}
             >
@@ -492,7 +449,6 @@ function Editing({
         </button>
       )}
 
-      {/* N3: back to the newest configuration that earned a star. Absent until one has. */}
       {backToPassing !== null &&
         (reverting ? (
           // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Escape from any of its controls closes the confirm
@@ -507,8 +463,6 @@ function Editing({
                   setReverting(false);
                   backToPassing();
                 }}
-                // Same reason as the starter restore: replacing mid-POST would reset the
-                // request and let a second POST out.
                 disabled={sending}
                 className={buttonClass("primary")}
               >
@@ -601,8 +555,6 @@ function Running({
             Mất kết nối tới máy chủ. Thử nối lại để xem tiếp lượt này. Chạy lại sẽ hủy lượt này và
             mở ca mới, tốn lời gọi AI như một lần mở ca.
           </p>
-          {/* The free action first: Chạy lại spends a new run's AI calls. Three never fit one
-              row of the aside, so the quiet way out gets its own, on the text edge. */}
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" onClick={onReconnect} className={buttonClass("primary")}>
               Thử nối lại
@@ -658,9 +610,7 @@ function Running({
   );
 }
 
-/** "#3 · Câu mẫu · Hỏi một dữ kiện", plus "· Câu của Minh" on case #1 (§8.5). */
 export function caseTitle(c: CaseView, levelId: string): string {
-  // The asker belongs to the level's case #1; a variant run's only case is #1 too.
   const asker = c.n === 1 && c.role === "visible" ? LEVEL_COPY[levelId]?.asker : undefined;
   return `#${c.n} · ${ROLE_VI[c.role] ?? c.role} · ${vaiVi(c.vai)}${asker ? ` · Câu của ${asker}` : ""}`;
 }
@@ -697,7 +647,6 @@ function CaseTable({
       <ul className="mt-2 space-y-1">
         {run.cases.map((c) => {
           const running = !c.graded && runningNodes(c).length > 0;
-          // R4: on the projector a graded case says only that it was graded until the reveal.
           const hide = masked && c.graded !== undefined;
           const Icon = hide
             ? CircleDashIcon
@@ -722,7 +671,6 @@ function CaseTable({
                 type="button"
                 aria-pressed={c.id === followedId}
                 onClick={() => onFollow(c.id)}
-                // N18: the row turns over as its case.graded arrives; instant with reduced motion.
                 className={`flex min-h-12 w-full flex-col items-start gap-0.5 rounded-sm border px-3 py-2 text-left text-sm ${tone} ${c.graded ? "motion-safe:animate-flip" : ""} ${c.id === followedId ? "border-brand ring-1 ring-brand" : "border-line"}`}
               >
                 <span className="font-semibold">{caseTitle(c, env.level.id)}</span>

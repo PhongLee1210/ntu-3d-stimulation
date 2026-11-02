@@ -4,18 +4,6 @@ import { ChevronDownIcon } from "~/components/ui/icons";
 
 import type { LevelScene, Npc } from "./copy";
 
-/**
- * Hiện trường (scenario §3): the object a level opens on. L1 is a poster pinned to the notice
- * board, L2 a leave form stamped overdue, L3 the printout a whole queue is holding, W1 the
- * refund receipt rolling out of the counter's printer. Each its own shape, so the head of each
- * level reads as its own place before a single knob is touched.
- *
- * It takes the place of cô Lan's box, and her line moves behind the disclosure with the rest
- * of the story: at 1280×800 the head had no room to spare, and one more box pushed "Mở ca" off
- * the first screen (workbench §2.1). Her line repeats the goals the right column already lists.
- *
- * Static text only: what a recorded run said belongs to the replay and its stamp, never here.
- */
 export function Scene({
   scene,
   npc,
@@ -26,9 +14,7 @@ export function Scene({
   scene: LevelScene;
   npc: Npc;
   line: string;
-  /** The level has a star: the scene shows its trouble fixed (cờ thế giới, scenario §3). */
   won?: boolean;
-  /** The NPC's line for the first star (scenario §4), said once the level is won. */
   win?: string;
 }): ReactElement {
   const id = useId();
@@ -71,7 +57,6 @@ export function Scene({
   );
 }
 
-/** A stamp across the object once the trouble is fixed, in the success colour. */
 function Fixed({ text }: { text: string }) {
   return (
     <span
@@ -86,7 +71,6 @@ function Fixed({ text }: { text: string }) {
 function object(scene: LevelScene, won: boolean): ReactElement {
   switch (scene.kind) {
     case "poster":
-      // A poster: a thick top edge like the tape that holds it. Taken down, it is struck through.
       return (
         <div className="relative">
           <blockquote
@@ -100,7 +84,6 @@ function object(scene: LevelScene, won: boolean): ReactElement {
         </div>
       );
     case "form":
-      // A form: its title on a ruled line and the stamp across its corner.
       return (
         <div className="flex items-center justify-between gap-3 rounded-sm border border-line-strong px-3 py-2">
           <div className="min-w-0 flex-1">
@@ -117,7 +100,6 @@ function object(scene: LevelScene, won: boolean): ReactElement {
         </div>
       );
     case "dossier":
-      // The printout: monospaced, like the counter's printer.
       return (
         <div
           data-scene-print=""
@@ -129,7 +111,6 @@ function object(scene: LevelScene, won: boolean): ReactElement {
         </div>
       );
     case "receipt":
-      // A till roll: torn top edge, one line per refund, the last one bold.
       return (
         <div
           data-scene-receipt=""

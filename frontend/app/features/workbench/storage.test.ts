@@ -139,7 +139,6 @@ describe("run history (N3)", () => {
     recordRun("grounded-citation", mark(1, "{a}", cases));
     expect(loadHistory("grounded-citation")[0]?.cases).toEqual(cases);
     const raw = window.localStorage.getItem("vg.history.v1.grounded-citation") ?? "";
-    // The log is megabytes of facts; a summary must not grow with it.
     expect(raw).not.toContain("step.finished");
     expect(raw).not.toContain("facts");
   });
@@ -149,9 +148,6 @@ describe("run history (N3)", () => {
     expect(loadHistory("grounded-citation")).toEqual([]);
   });
 
-  // Spied on the prototype, not the instance: jsdom's localStorage inherits its methods, and an
-  // own-property spy never runs -- which made the first version of both these tests pass
-  // whatever the code did.
   it("reads as no history when storage cannot be read at all", () => {
     const blocked = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");

@@ -15,11 +15,7 @@ export default defineConfig({
     },
   },
   build: {
-    // Read by scripts/check-bundle.mjs (play chunk budget, chunks the landing page must not
-    // load); the script removes it from the deployable output afterwards.
     manifest: true,
-    // three.js is isolated in the /play route chunk; keep the warning meaningful for
-    // everything else.
     chunkSizeWarningLimit: 1000,
   },
 });

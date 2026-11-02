@@ -1,6 +1,3 @@
-// Minimal static server for the production build: serves build/client with the same
-// security headers and SPA fallback as production, and proxies /api to the backend.
-// Used by `npm run preview` and the Playwright e2e suite. Not for production traffic.
 import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import http from "node:http";
@@ -14,7 +11,6 @@ const { values } = parseArgs({ options: { port: { type: "string", default: "4173
 const port = Number(values.port);
 const apiTarget = new URL(process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8000");
 
-// Read per request (the file is tiny) so a rebuild never leaves a reused server on a stale CSP.
 const readSecurityHeaders = async () =>
   JSON.parse(await readFile(path.join(root, "build", "security-headers.json"), "utf8"));
 
@@ -34,7 +30,6 @@ const MIME = {
 
 async function resolveFile(decoded) {
   const candidate = path.normalize(path.join(clientDir, decoded));
-  // Reject anything that escapes the build directory.
   const rel = path.relative(clientDir, candidate);
   if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
   try {
@@ -44,9 +39,7 @@ async function resolveFile(decoded) {
       const index = path.join(candidate, "index.html");
       if ((await stat(index).catch(() => null))?.isFile()) return index;
     }
-  } catch {
-    // missing: the caller decides between 404 and the SPA fallback
-  }
+  } catch {}
   return null;
 }
 
@@ -71,8 +64,6 @@ function proxyApi(req, res) {
   req.pipe(upstream);
 }
 
-// Missing hashed assets or theme files must 404, never fall back to the SPA HTML
-// (mirrors the _redirects rules written by postbuild-csp.mjs).
 const NO_FALLBACK = ["/assets/", "/themes/"];
 
 async function handle(req, res) {
