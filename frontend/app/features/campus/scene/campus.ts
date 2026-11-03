@@ -17,30 +17,7 @@ import {
 import type { CampusTheme, LandmarkArchetype } from "~/features/theme/schema";
 import type { ZoneLocation } from "~/features/zones/schema";
 
-import {
-  arcPoint,
-  BACK,
-  BASE,
-  COLONNADE_COLUMNS,
-  COLONNADE_PIERS,
-  CYPRESS_TREES,
-  FOUNTAIN_WATER,
-  GATE,
-  LAKE,
-  LANDMARK,
-  NPCS,
-  PARK_TREES,
-  PATHS,
-  PLAZA,
-  PLAZA_RADIUS,
-  ROSE_BEDS,
-  ROUND_TREES,
-  SITES,
-  siteFor,
-  SPEAKERS,
-  type Box,
-  type Vec2,
-} from "../layout";
+import { layoutFor, WORLD_BOUNDS, type Box, type CampusLayout, type Vec2 } from "../layout";
 import { DRESSING, DRESSING_LAMPS } from "../dressing";
 import type { SiteLook } from "../sites";
 import { desaturate, shade, type BuildingPalette, type Palette } from "./palette";
@@ -65,6 +42,18 @@ import {
   type Face,
   type PartStyle,
 } from "./primitives";
+
+const CANONICAL_LAYOUT = layoutFor("vinuni");
+
+function buildAnchoredGeometry(
+  geometry: BufferGeometry,
+  layout: CampusLayout,
+  canonical: Vec2,
+  anchor: Vec2,
+): BufferGeometry {
+  if (layout.worldBounds === WORLD_BOUNDS) return geometry;
+  return geometry.translate(anchor.x - canonical.x, 0, anchor.z - canonical.z);
+}
 
 const hash = (i: number, k: number) => {
   const s = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
@@ -105,26 +94,35 @@ export interface TreeInstance {
   kind: "round" | "cypress";
 }
 
-const TREE_LISTS = [
-  { trees: ROUND_TREES, kind: "round", factor: 1 },
-  { trees: CYPRESS_TREES, kind: "cypress", factor: 1 },
-  { trees: PARK_TREES, kind: "round", factor: 0.55 },
-] as const;
+const TREE_INSTANCE_CACHE = new WeakMap<CampusLayout, readonly TreeInstance[]>();
 
-export const TREE_INSTANCES: readonly TreeInstance[] = TREE_LISTS.flatMap(
-  ({ trees, kind, factor }) => trees.map((tree) => ({ ...tree, kind, factor })),
-).map(({ x, z, kind, factor }, i) => {
-  const scale = factor * (0.9 + 0.22 * hash(i, 0));
-  return {
-    x,
-    z,
-    scale,
-    scaleY: scale * (0.95 + 0.2 * hash(i, 1)),
-    yaw: 2 * PI * hash(i, 2),
-    brightness: 0.9 + 0.18 * hash(i, 3),
-    kind,
-  };
-});
+export function treeInstancesFor(layout: CampusLayout): readonly TreeInstance[] {
+  const cached = TREE_INSTANCE_CACHE.get(layout);
+  if (cached) return cached;
+  const lists = [
+    { trees: layout.roundTrees, kind: "round" as const, factor: 1 },
+    { trees: layout.cypressTrees, kind: "cypress" as const, factor: 1 },
+    { trees: layout.parkTrees, kind: "round" as const, factor: 0.55 },
+  ];
+  const instances = lists
+    .flatMap(({ trees, kind, factor }) => trees.map((tree) => ({ ...tree, kind, factor })))
+    .map(({ x, z, kind, factor }, i) => {
+      const scale = factor * (0.9 + 0.22 * hash(i, 0));
+      return {
+        x,
+        z,
+        scale,
+        scaleY: scale * (0.95 + 0.2 * hash(i, 1)),
+        yaw: 2 * PI * hash(i, 2),
+        brightness: 0.9 + 0.18 * hash(i, 3),
+        kind,
+      };
+    });
+  TREE_INSTANCE_CACHE.set(layout, instances);
+  return instances;
+}
+
+export const TREE_INSTANCES: readonly TreeInstance[] = treeInstancesFor(CANONICAL_LAYOUT);
 
 export function treeMatrix(tree: TreeInstance): Matrix4 {
   return new Matrix4().compose(
@@ -196,16 +194,17 @@ function statue(x: number, z: number, pal: Palette, small = false): Parts {
 }
 
 const LAKE_STEPS = 16;
-const shore = (i: number, k: number, grow = 0): Vec2 => {
+const shore = (lake: CampusLayout["lake"], i: number, k: number, grow = 0): Vec2 => {
   const t = (PI / 2) * (i / LAKE_STEPS);
   return {
-    x: LAKE.x - (k * LAKE.rx + grow) * Math.cos(t),
-    z: LAKE.z - (k * LAKE.rz + grow) * Math.sin(t),
+    x: lake.x - (k * lake.rx + grow) * Math.cos(t),
+    z: lake.z - (k * lake.rz + grow) * Math.sin(t),
   };
 };
 
 function lakeBand(
   pal: Palette,
+  lake: CampusLayout["lake"],
   k0: number,
   g0: number,
   k1: number,
@@ -216,7 +215,12 @@ function lakeBand(
   return range(LAKE_STEPS).map((i) =>
     groundQuad(
       pal,
-      [shore(i, k0, g0), shore(i, k1, g1), shore(i + 1, k1, g1), shore(i + 1, k0, g0)],
+      [
+        shore(lake, i, k0, g0),
+        shore(lake, i, k1, g1),
+        shore(lake, i + 1, k1, g1),
+        shore(lake, i + 1, k0, g0),
+      ],
       y,
       color,
     ),
@@ -225,29 +229,29 @@ function lakeBand(
 
 const FOAM = 0.22;
 
-function lake(pal: Palette): Parts {
+function lake(pal: Palette, lakeLayout: CampusLayout["lake"]): Parts {
   const water = (p: Vec2) => ({ ...p, color: pal.water });
   const fan = range(LAKE_STEPS).flatMap((i) => [
-    { ...LAKE, color: pal.deep },
-    water(shore(i, 1, -FOAM)),
-    water(shore(i + 1, 1, -FOAM)),
+    { ...lakeLayout, color: pal.deep },
+    water(shore(lakeLayout, i, 1, -FOAM)),
+    water(shore(lakeLayout, i + 1, 1, -FOAM)),
   ]);
   return [
     paint(pal)(groundTriangles(fan, 0.008)),
-    ...lakeBand(pal, 1, -FOAM, 1, 0, 0.008, pal.foam),
-    ...lakeBand(pal, 1, 0, 1, 0.14, 0.009, pal.lm.trim),
+    ...lakeBand(pal, lakeLayout, 1, -FOAM, 1, 0, 0.008, pal.foam),
+    ...lakeBand(pal, lakeLayout, 1, 0, 1, 0.14, 0.009, pal.lm.trim),
   ];
 }
 
-function fountain(pal: Palette): Parts {
+function fountain(pal: Palette, plaza: Vec2, plazaRadius: number, fountainWater: number): Parts {
   const P = paint(pal);
-  const { x: px, z: pz } = PLAZA;
+  const { x: px, z: pz } = plaza;
   const { wall, trim } = pal.lm;
   const arm = new CylinderGeometry(0.025, 0.03, 0.36, 5)
     .rotateZ(-0.35)
     .translate(px + 0.13, 1.88, pz);
   return [
-    P(cyl(PLAZA_RADIUS, PLAZA_RADIUS, 48, 0, 0.04, px, pz), pal.plaza),
+    P(cyl(plazaRadius, plazaRadius, 48, 0, 0.04, px, pz), pal.plaza),
     P(ring(2.3, 2.55, 48, px, 0.041, pz), trim),
     P(ring(2.75, 2.82, 48, px, 0.041, pz), pal.band),
     P(ring(3.6, 3.85, 48, px, 0.041, pz), trim),
@@ -272,7 +276,7 @@ function fountain(pal: Palette): Parts {
       ),
       wall,
     ),
-    P(circle(FOUNTAIN_WATER, 32, px, 0.22, pz), pal.water),
+    P(circle(fountainWater, 32, px, 0.22, pz), pal.water),
     P(ring(1.12, 1.2, 32, px, 0.222, pz), pal.waterHi),
     ...range(8).flatMap((k) => {
       const a = PI / 8 + (k * PI) / 4;
@@ -288,9 +292,9 @@ function fountain(pal: Palette): Parts {
   ];
 }
 
-function roseGarden(pal: Palette): Parts {
+function roseGarden(pal: Palette, roseBeds: CampusLayout["roseBeds"]): Parts {
   const P = paint(pal);
-  return ROSE_BEDS.flatMap(([x0, z0]) => {
+  return roseBeds.flatMap(([x0, z0]) => {
     return [
       P(box(x0, x0 + 2.6, 0, 0.14, z0, z0 + 1.5), pal.hedge),
       P(rect(x0 + 0.12, x0 + 2.48, z0 + 0.12, z0 + 1.38, 0.142), pal.foliage),
@@ -341,13 +345,20 @@ function forecourtRays(pal: Palette) {
 }
 
 const ASPHALT = [4.6, 8.6, -12.85, -11.25] as const;
-const NORTH_PATH = [-1.3, -0.5, BASE.minZ, -16.6] as const;
-export const PAVED = [...PATHS.front, ...PATHS.low, ...PATHS.back, ASPHALT, NORTH_PATH];
+const NORTH_PATH = [-1.3, -0.5, CANONICAL_LAYOUT.base.minZ, -16.6] as const;
+export const PAVED = [
+  ...CANONICAL_LAYOUT.paths.front,
+  ...CANONICAL_LAYOUT.paths.low,
+  ...CANONICAL_LAYOUT.paths.back,
+  ASPHALT,
+  NORTH_PATH,
+];
 export const KERB = 0.06;
 export const KERB_Y = 0.0105;
 
 function backGrounds(pal: Palette): Parts {
   const P = paint(pal);
+  const paths = CANONICAL_LAYOUT.paths;
   const track = { xc: 12.0, za: -13.6, zb: -18.6 };
   const trackCentre = { x: track.xc, z: (track.za + track.zb) / 2 };
   const loop = (r: number) => {
@@ -381,7 +392,7 @@ function backGrounds(pal: Palette): Parts {
     { x0: 2.7, x1: 4.6 },
   ];
   return [
-    ...PATHS.back.map(([x0, x1, z0, z1]) => P(rect(x0, x1, z0, z1, 0.012), pal.path)),
+    ...paths.back.map(([x0, x1, z0, z1]) => P(rect(x0, x1, z0, z1, 0.012), pal.path)),
     P(rect(...ASPHALT, 0.012), pal.asphalt),
     P(rect(...NORTH_PATH, 0.012), pal.path),
     P(rect(-14.6, -1.6, -21.4, -16.4, 0.01), pal.park),
@@ -583,6 +594,7 @@ const TOWER: Record<LandmarkArchetype, readonly Caster[]> = {
       new Vector3(0, 8.1, -5.65),
     ],
   ],
+  "seafront-slab": [block(-6, 0, -7.9, -7.3, 5.02), block(0, 6, -7.7, -7.1, 5.02)],
 };
 
 function lintel(x0: number, x1: number, z0: number, z1: number, y0: number, y1: number): Caster {
@@ -591,10 +603,10 @@ function lintel(x0: number, x1: number, z0: number, z1: number, y0: number, y1: 
 
 const GATES = {
   arch: [
-    block(-1.82, 1.82, GATE.back, 12.5, 2.8),
+    block(-1.82, 1.82, CANONICAL_LAYOUT.gate.back, 12.5, 2.8),
     block(-1.16, 1.16, 11.7, 12.2, 3.0),
-    block(-2.8, -1.54, 11.55, GATE.face, 1.78),
-    block(1.54, 2.8, 11.55, GATE.face, 1.78),
+    block(-2.8, -1.54, 11.55, CANONICAL_LAYOUT.gate.face, 1.78),
+    block(1.54, 2.8, 11.55, CANONICAL_LAYOUT.gate.face, 1.78),
   ],
   pier: [
     block(-1.7, -1.2, 11.9, 12.4, 1.4),
@@ -621,12 +633,12 @@ function hull(points: readonly Vec2[]): Vec2[] {
   return [...half(sorted), ...half(sorted.reverse())];
 }
 
-function clipToBase(polygon: Vec2[]): Vec2[] {
+function clipToBase(polygon: Vec2[], base: CampusLayout["base"]): Vec2[] {
   const edges = [
-    { axis: "x", limit: BASE.minX, keep: 1 },
-    { axis: "x", limit: BASE.maxX, keep: -1 },
-    { axis: "z", limit: BASE.minZ, keep: 1 },
-    { axis: "z", limit: BASE.maxZ, keep: -1 },
+    { axis: "x", limit: base.minX, keep: 1 },
+    { axis: "x", limit: base.maxX, keep: -1 },
+    { axis: "z", limit: base.minZ, keep: 1 },
+    { axis: "z", limit: base.maxZ, keep: -1 },
   ] as const;
   let out = polygon;
   for (const { axis, limit, keep } of edges) {
@@ -645,15 +657,34 @@ function clipToBase(polygon: Vec2[]): Vec2[] {
   return out;
 }
 
-export const shadowCasters = (archetype: LandmarkArchetype, colonnades: boolean): Caster[] => [
-  ...CASTERS,
-  ...TOWER[archetype],
-  ...GATES[colonnades ? "arch" : "pier"],
-];
+export const shadowCasters = (
+  archetype: LandmarkArchetype,
+  colonnades: boolean,
+  layout: CampusLayout = CANONICAL_LAYOUT,
+): Caster[] => {
+  if (layout.worldBounds === WORLD_BOUNDS) {
+    return [...CASTERS, ...TOWER[archetype], ...GATES[colonnades ? "arch" : "pier"]];
+  }
+  const landmarkHeight = TOWER[archetype].reduce(
+    (max, caster) => caster.reduce((m, p) => Math.max(m, p.y), max),
+    0,
+  );
+  return [
+    ...Object.values(layout.back).map(({ x, z, halfX, halfZ }) =>
+      block(x - halfX, x + halfX, z - halfZ, z + halfZ, 2.5),
+    ),
+    ...layout.sites.map(({ footprint: f }) =>
+      block(f.x - f.halfX, f.x + f.halfX, f.z - f.halfZ, f.z + f.halfZ, 3.5),
+    ),
+    ...layout.landmark.footprints.map((f) =>
+      block(f.x - f.halfX, f.x + f.halfX, f.z - f.halfZ, f.z + f.halfZ, landmarkHeight),
+    ),
+  ];
+};
 
-function crownCasters(): Caster[] {
+function crownCasters(trees: readonly TreeInstance[]): Caster[] {
   const crowns = { round: roundCrown(), cypress: cypressCrown() };
-  const casters = TREE_INSTANCES.map((tree) => {
+  const casters = trees.map((tree) => {
     const position = crowns[tree.kind].getAttribute("position");
     const matrix = treeMatrix(tree);
     return Array.from({ length: position.count }, (_, i) =>
@@ -664,7 +695,8 @@ function crownCasters(): Caster[] {
   return casters;
 }
 
-function propCasters(): Caster[] {
+function propCasters(layout: CampusLayout): Caster[] {
+  if (layout.worldBounds !== WORLD_BOUNDS) return [];
   return DRESSING.flatMap(({ shade, at }) =>
     shade
       ? at.map(([x, z]): Caster => {
@@ -686,12 +718,13 @@ export function treesInShade(
   pal: Palette,
   archetype: LandmarkArchetype,
   colonnades: boolean,
+  layout: CampusLayout = CANONICAL_LAYOUT,
 ): ReadonlySet<TreeInstance> {
   const { sun } = pal.light;
   if (!pal.sunShade) return new Set();
-  const casters = shadowCasters(archetype, colonnades);
+  const casters = shadowCasters(archetype, colonnades, layout);
   return new Set(
-    TREE_INSTANCES.filter((tree) => {
+    treeInstancesFor(layout).filter((tree) => {
       const h = (tree.kind === "round" ? 1.55 : 0.6) * tree.scaleY;
       return casters.some((caster) => {
         if (!caster.some((p) => p.y > h)) return false;
@@ -713,6 +746,7 @@ export function buildShadows(
   pal: Palette,
   archetype: LandmarkArchetype,
   colonnades: boolean,
+  layout: CampusLayout = CANONICAL_LAYOUT,
 ): BufferGeometry {
   const { sun } = pal.light;
   if (!pal.sunShade) return groundTriangles([], SHADOW_Y);
@@ -720,8 +754,12 @@ export function buildShadows(
     x: p.x - (sun.x / sun.y) * p.y,
     z: p.z - (sun.z / sun.y) * p.y,
   });
-  const vertices = [...shadowCasters(archetype, colonnades), ...crownCasters(), ...propCasters()]
-    .map((caster) => clipToBase(hull(caster.map(onGround))))
+  const vertices = [
+    ...shadowCasters(archetype, colonnades, layout),
+    ...crownCasters(treeInstancesFor(layout)),
+    ...propCasters(layout),
+  ]
+    .map((caster) => clipToBase(hull(caster.map(onGround)), layout.base))
     .filter((outline) => outline.length >= 3)
     .flatMap((outline) => {
       const first = outline[0] ?? { x: 0, z: 0 };
@@ -737,7 +775,7 @@ export function buildShadows(
 export const SPEAKER_DISC_Y = 0.0135;
 export const SPEAKER_DISC_SEGMENTS = 16;
 
-function speakerDiscs(pal: Palette): Parts {
+function speakerDiscs(pal: Palette, speakers: CampusLayout["speakers"]): Parts {
   const pool = pal.darkness >= 0.5;
   const top = shade(new Vector3(0, 1, 0), pal.light);
   const floor = {
@@ -747,7 +785,7 @@ function speakerDiscs(pal: Palette): Parts {
     examiner: pal.asphalt,
     operator: pal.ground,
   };
-  return SPEAKERS.map(({ id, spot }) => {
+  return speakers.map(({ id, spot }) => {
     const r = (id === "lan" ? 0.4 : 0.36) * (pool ? 2.2 : 1);
     const rim = range(SPEAKER_DISC_SEGMENTS + 1).map((i) => {
       const a = (i / SPEAKER_DISC_SEGMENTS) * 2 * PI;
@@ -761,7 +799,9 @@ function speakerDiscs(pal: Palette): Parts {
   });
 }
 
-export function lampSpots(colonnades: boolean): Vec2[] {
+export function lampSpots(colonnades: boolean, layout: CampusLayout = CANONICAL_LAYOUT): Vec2[] {
+  if (layout.worldBounds !== WORLD_BOUNDS) return [];
+  const arcPoint = layout.arcPoint;
   return [
     { x: 13.4, z: -3.0 },
     { x: 13.4, z: -7.0 },
@@ -775,10 +815,7 @@ export function lampSpots(colonnades: boolean): Vec2[] {
   ];
 }
 
-export const STATUES: readonly Vec2[] = [
-  ...grid([-3.05, 3.05], [-1.35, -0.45, 0.45, 1.35], (x, z) => ({ x, z })),
-  ...grid([-3.3, 3.3], [-2.05, -5.5], (x, z) => ({ x, z })),
-];
+export const STATUES: readonly Vec2[] = CANONICAL_LAYOUT.statues;
 
 export const MOW_WIDTH = 1.4;
 export const MOW_Y = 0.003;
@@ -787,10 +824,19 @@ const MOW_STRIPS = 12;
 export const STRATA = [0, -0.06, -0.32, -0.6] as const;
 export const LAKE_SECTION = 0.18;
 
-export function buildTerrain(pal: Palette, colonnades: boolean): BufferGeometry {
+export function buildTerrain(
+  pal: Palette,
+  colonnades: boolean,
+  layout: CampusLayout = CANONICAL_LAYOUT,
+): BufferGeometry {
+  const isShared = layout.worldBounds === WORLD_BOUNDS;
   const P = paint(pal);
-  const { minX, maxX, minZ, maxZ } = BASE;
+  const { minX, maxX, minZ, maxZ } = layout.base;
+  const { lake: lakeLayout, plaza, plazaRadius, fountainWater } = layout;
   const [top, lip, soil, bottom] = STRATA;
+  const paved = isShared
+    ? PAVED
+    : [...layout.paths.front, ...layout.paths.low, ...layout.paths.back];
   const kerb = ([x0, x1, z0, z1]: readonly [number, number, number, number]) =>
     P(
       rect(
@@ -806,35 +852,63 @@ export function buildTerrain(pal: Palette, colonnades: boolean): BufferGeometry 
     P(box(minX, maxX, lip, top, minZ, maxZ), pal.ground),
     P(box(minX, maxX, soil, lip, minZ, maxZ), pal.soil, { ao: true }),
     P(box(minX, maxX, bottom, soil, minZ, maxZ), pal.subsoil, { ao: true }),
-    P(quad("+x", maxX, LAKE.z - LAKE.rz / 2, -LAKE_SECTION / 2, LAKE.rz, LAKE_SECTION), pal.deep),
-    P(quad("+z", maxZ, LAKE.x - LAKE.rx / 2, -LAKE_SECTION / 2, LAKE.rx, LAKE_SECTION), pal.deep),
-    P(box(minX - 0.25, maxX + 0.25, -0.8, -0.6, minZ - 0.25, maxZ + 0.25), pal.plaza),
-    ...range(MOW_STRIPS).map((k) => {
-      const z0 = minZ + MOW_WIDTH * (2 * k + 1);
-      return P(rect(minX, maxX, z0, Math.min(z0 + MOW_WIDTH, maxZ), MOW_Y), pal.mow);
-    }),
-    ...PAVED.map(kerb),
-    ...PATHS.low.map(([x0, x1, z0, z1]) => P(rect(x0, x1, z0, z1, 0.011), pal.path)),
-    ...PATHS.front.map(([x0, x1, z0, z1]) => P(rect(x0, x1, z0, z1, 0.012), pal.path)),
-    ...forecourtRays(pal),
-    P(rect(-3.4, 3.4, -2.0, -1.9, 0.013), pal.band),
-    ...roseGarden(pal),
-    P(box(-2.02, -1.92, 0, 0.16, -1.7, 1.3), pal.hedge),
-    P(box(1.92, 2.02, 0, 0.16, -1.7, 1.3), pal.hedge),
-    ...fountain(pal),
-    ...lake(pal),
-    ...balustrades(pal),
-    ...STATUES.flatMap(({ x, z }) => statue(x, z, pal)),
-    ...lampSpots(colonnades).flatMap((spot) => lamp(spot, pal)),
-    ...SIDES.flatMap((s) =>
-      [0.42, 0.52, 0.62].map((k) => {
-        const { x, z } = arcPoint(s * k * PI, 4.2);
-        return P(ico(0.22, 0, 0, 0, 0).scale(1, 0.8, 1).translate(x, 0.18, z), pal.hedge);
-      }),
+    P(
+      quad(
+        "+x",
+        maxX,
+        lakeLayout.z - lakeLayout.rz / 2,
+        -LAKE_SECTION / 2,
+        lakeLayout.rz,
+        LAKE_SECTION,
+      ),
+      pal.deep,
     ),
-    ...speakerDiscs(pal),
-    ...backGrounds(pal),
-    ...backCampus(pal),
+    P(
+      quad(
+        "+z",
+        maxZ,
+        lakeLayout.x - lakeLayout.rx / 2,
+        -LAKE_SECTION / 2,
+        lakeLayout.rx,
+        LAKE_SECTION,
+      ),
+      pal.deep,
+    ),
+    ...(isShared
+      ? [P(box(minX - 0.25, maxX + 0.25, -0.8, -0.6, minZ - 0.25, maxZ + 0.25), pal.plaza)]
+      : []),
+    ...range(isShared ? MOW_STRIPS : Math.max(1, Math.floor((maxZ - minZ) / (2 * MOW_WIDTH)))).map(
+      (k) => {
+        const z0 = minZ + MOW_WIDTH * (2 * k + 1);
+        return P(rect(minX, maxX, z0, Math.min(z0 + MOW_WIDTH, maxZ), MOW_Y), pal.mow);
+      },
+    ),
+    ...paved.map(kerb),
+    ...(isShared ? forecourtRays(pal) : []),
+    ...(isShared ? [P(rect(-3.4, 3.4, -2.0, -1.9, 0.013), pal.band)] : []),
+    ...roseGarden(pal, layout.roseBeds),
+    ...(isShared
+      ? [
+          P(box(-2.02, -1.92, 0, 0.16, -1.7, 1.3), pal.hedge),
+          P(box(1.92, 2.02, 0, 0.16, -1.7, 1.3), pal.hedge),
+        ]
+      : []),
+    ...fountain(pal, plaza, plazaRadius, fountainWater),
+    ...lake(pal, lakeLayout),
+    ...(isShared ? balustrades(pal) : []),
+    ...layout.statues.flatMap(({ x, z }) => statue(x, z, pal)),
+    ...lampSpots(colonnades, layout).flatMap((spot) => lamp(spot, pal)),
+    ...(isShared
+      ? SIDES.flatMap((s) =>
+          [0.42, 0.52, 0.62].map((k) => {
+            const { x, z } = layout.arcPoint(s * k * PI, 4.2);
+            return P(ico(0.22, 0, 0, 0, 0).scale(1, 0.8, 1).translate(x, 0.18, z), pal.hedge);
+          }),
+        )
+      : []),
+    ...speakerDiscs(pal, layout.speakers),
+    ...(isShared ? backGrounds(pal) : []),
+    ...(isShared ? backCampus(pal) : []),
   ]);
 }
 
@@ -880,29 +954,36 @@ function propReach(row: (typeof DRESSING)[number]): [number, number] {
   return [1.5 * hx, 1.5 * hz];
 }
 
-export function buildAo(pal: Palette, colonnades: boolean): BufferGeometry {
+export function buildAo(
+  pal: Palette,
+  colonnades: boolean,
+  layout: CampusLayout = CANONICAL_LAYOUT,
+): BufferGeometry {
+  const isShared = layout.worldBounds === WORLD_BOUNDS;
   const { ao } = pal;
   const footprints = [
-    ...LANDMARK.footprints,
-    ...SITES.map((site) => site.footprint),
-    BACK.annex,
-    BACK.solarHall,
-    BACK.westHall,
-    BACK.hall,
-    BACK.chiller,
+    ...layout.landmark.footprints,
+    ...layout.sites.map((site) => site.footprint),
+    layout.back.annex,
+    layout.back.solarHall,
+    layout.back.westHall,
+    layout.back.hall,
+    layout.back.chiller,
   ];
   const vertices = [
     ...footprints.flatMap((f) => aoFrame(f, ao)),
-    ...TREE_INSTANCES.flatMap((tree) => {
+    ...treeInstancesFor(layout).flatMap((tree) => {
       const r = (tree.kind === "round" ? 0.71 : 0.3) * tree.scale;
       return aoBlob(ao, tree.x, tree.z, r, r, 12);
     }),
-    ...DRESSING.filter((row) => row.kind === "ground" || row.kind === "fence").flatMap((row) => {
-      const [rx, rz] = propReach(row);
-      return row.at.flatMap(([x, z]) => aoBlob(ao, x, z, rx, rz, 8));
-    }),
-    ...lampSpots(colonnades).flatMap(({ x, z }) => aoBlob(ao, x, z, 0.22, 0.22, 6)),
-    ...STATUES.flatMap(({ x, z }) => aoBlob(ao, x, z, 0.3, 0.3, 8)),
+    ...(isShared
+      ? DRESSING.filter((row) => row.kind === "ground" || row.kind === "fence").flatMap((row) => {
+          const [rx, rz] = propReach(row);
+          return row.at.flatMap(([x, z]) => aoBlob(ao, x, z, rx, rz, 8));
+        })
+      : []),
+    ...lampSpots(colonnades, layout).flatMap(({ x, z }) => aoBlob(ao, x, z, 0.22, 0.22, 6)),
+    ...layout.statues.flatMap(({ x, z }) => aoBlob(ao, x, z, 0.3, 0.3, 8)),
   ];
   return groundTriangles(vertices, AO_Y);
 }
@@ -1157,13 +1238,47 @@ function clockTower(pal: Palette): Parts {
   ];
 }
 
+function seafrontSlab(pal: Palette): Parts {
+  const P = paint(pal);
+  const { wall, trim, roof } = pal.lm;
+  const y0 = 3.02;
+  const y1 = 5.02;
+  return [
+    P(box(-6, 0, y0, y1, -7.9, -7.3), wall),
+    P(box(0, 6, y0, y1, -7.7, -7.1), wall),
+    P(box(-6, 0, y1, y1 + 0.08, -7.92, -7.28), trim),
+    P(box(0, 6, y1, y1 + 0.08, -7.72, -7.08), trim),
+    P(quad("-z", -7.9, -3, (y0 + y1) / 2, 6, y1 - y0 - 0.3), pal.glass),
+    P(quad("-z", -7.7, 3, (y0 + y1) / 2, 6, y1 - y0 - 0.3), pal.glass),
+    P(box(-6.05, 6.05, y0 - 0.06, y0, -7.95, -7.05), roof),
+  ];
+}
+
+const PARAPET_FIN_X = [-5.2, -4.3, -3.0, -1.8, -0.9, 0.3, 1.5, 2.6, 3.8, 4.6, 5.3] as const;
+
+export function parapetFinGeometry(): BufferGeometry {
+  return box(-0.04, 0.04, 0, 0.36, -0.03, 0.03);
+}
+
+export function parapetFinSpots(
+  archetype: LandmarkArchetype,
+  layout: CampusLayout = CANONICAL_LAYOUT,
+): readonly Vec2[] {
+  if (archetype !== "seafront-slab") return [];
+  const dx = layout.landmark.centre.x - CANONICAL_LAYOUT.landmark.centre.x;
+  const dz = layout.landmark.centre.z - CANONICAL_LAYOUT.landmark.centre.z;
+  return PARAPET_FIN_X.map((x) => ({ x: x + dx, z: (x < 0 ? -7.9 : -7.7) + dz }));
+}
+
+export const PARAPET_FIN_Y = 5.1;
+
 function colonnade(pal: Palette): Parts {
   const P = paint(pal);
   const { wall, trim } = pal.lm;
   const turned = (h: number, y0: number, y1: number, p: Vec2, a: number) =>
     box(-h, h, y0, y1, -h, h).rotateY(-a).translate(p.x, 0, p.z);
   return [
-    ...COLONNADE_COLUMNS.flatMap(({ x, z }) => [
+    ...CANONICAL_LAYOUT.colonnadeColumns.flatMap(({ x, z }) => [
       P(box(x - 0.13, x + 0.13, 0.04, 0.12, z - 0.13, z + 0.13), trim),
       P(cyl(0.075, 0.088, 8, 0.12, 1.55, x, z), wall),
       P(box(x - 0.13, x + 0.13, 1.55, 1.65, z - 0.13, z + 0.13), trim),
@@ -1172,11 +1287,11 @@ function colonnade(pal: Palette): Parts {
       P(arcSlab(2.86, 3.94, s * 0.35 * PI, s * 0.7 * PI, 1.65, 1.88), wall),
       P(arcSlab(2.8, 4.0, s * 0.345 * PI, s * 0.705 * PI, 1.88, 1.95), trim),
       ...[0.4, 0.49, 0.58].flatMap((k) => {
-        const { x, z } = arcPoint(s * k * PI, 3.4);
+        const { x, z } = CANONICAL_LAYOUT.arcPoint(s * k * PI, 3.4);
         return [P(cyl(0.05, 0.09, 6, 1.95, 2.1, x, z), wall), P(ico(0.08, 0, x, 2.17, z), wall)];
       }),
     ]),
-    ...COLONNADE_PIERS.flatMap((p, i) => {
+    ...CANONICAL_LAYOUT.colonnadePiers.flatMap((p, i) => {
       const a = (SIDES[i] ?? 1) * 0.68 * PI;
       return [
         P(turned(0.42, 0, 1.65, p, a), wall),
@@ -1196,7 +1311,7 @@ function hedgeArcs(pal: Palette): Parts {
 function archGate(pal: Palette): Parts {
   const P = paint(pal);
   const { wall, trim, accent } = pal.lm;
-  const fz = GATE.face;
+  const fz = CANONICAL_LAYOUT.gate.face;
   const iron = pal.iron;
   const ao = { ao: true };
   const span = (s: number, a: number, b: number) => [
@@ -1210,7 +1325,7 @@ function archGate(pal: Palette): Parts {
   const fencePiers = [...range(12).map((k) => -14.55 + k), ...range(4).map((k) => 3.4 + k)];
   return [
     P(box(-1.54, 1.54, 0, 2.62, 11.5, fz), wall, ao),
-    P(box(-1.82, 1.82, 2.62, 2.8, GATE.back, 12.5), trim),
+    P(box(-1.82, 1.82, 2.62, 2.8, CANONICAL_LAYOUT.gate.back, 12.5), trim),
     P(quad("+z", fz, 0, 2.57, 3.08, 0.05), accent),
     P(box(-1.16, 1.16, 2.8, 3.0, 11.7, 12.2), wall),
     P(quad("+z", fz, 0, 0.63, 1.29, 1.26), iron),
@@ -1221,10 +1336,10 @@ function archGate(pal: Palette): Parts {
     P(arch("-z", 11.5, 0, 1.26, 0.645), iron),
     P(quad("-z", 11.5, 0, 2.1, 3.08, 0.08), accent),
     ...[-1.28, -0.86, 0.86, 1.28].flatMap((x) => [
-      P(box(x - 0.12, x + 0.12, 0, 0.3, fz, BASE.maxZ), trim),
-      P(box(x - 0.125, x + 0.125, 0.22, 0.27, fz, BASE.maxZ + 0.005), accent),
+      P(box(x - 0.12, x + 0.12, 0, 0.3, fz, CANONICAL_LAYOUT.base.maxZ), trim),
+      P(box(x - 0.125, x + 0.125, 0.22, 0.27, fz, CANONICAL_LAYOUT.base.maxZ + 0.005), accent),
       P(cyl(0.08, 0.09, 8, 0.3, 1.98, x, 12.51), wall),
-      P(box(x - 0.12, x + 0.12, 1.98, 2.06, fz, BASE.maxZ), trim),
+      P(box(x - 0.12, x + 0.12, 1.98, 2.06, fz, CANONICAL_LAYOUT.base.maxZ), trim),
     ]),
     ...SIDES.flatMap((s) => {
       const [x0 = 0, x1 = 0] = span(s, 1.54, 2.66);
@@ -1265,10 +1380,27 @@ function pierGate(pal: Palette): Parts {
   ];
 }
 
-export function buildLandmark(pal: Palette, archetype: LandmarkArchetype, colonnades: boolean) {
+const TOWER_PARTS: Record<LandmarkArchetype, (pal: Palette) => Parts> = {
+  "spire-hall": spireHall,
+  "clock-tower": clockTower,
+  "seafront-slab": seafrontSlab,
+};
+
+export function buildLandmark(
+  pal: Palette,
+  archetype: LandmarkArchetype,
+  colonnades: boolean,
+  layout: CampusLayout = CANONICAL_LAYOUT,
+) {
+  const building = buildAnchoredGeometry(
+    merge([...mainBuilding(pal), ...TOWER_PARTS[archetype](pal)]),
+    layout,
+    CANONICAL_LAYOUT.landmark.centre,
+    layout.landmark.centre,
+  );
+  if (layout.worldBounds !== WORLD_BOUNDS) return building;
   return merge([
-    ...mainBuilding(pal),
-    ...(archetype === "spire-hall" ? spireHall(pal) : clockTower(pal)),
+    building,
     ...(colonnades ? [...colonnade(pal), ...archGate(pal)] : [...hedgeArcs(pal), ...pierGate(pal)]),
   ]);
 }
@@ -1296,7 +1428,7 @@ function entranceLamps(pal: Palette, id: ZoneLocation, look: SiteLook): Parts {
 }
 
 export function entranceLampSpots(id: ZoneLocation): Vec2[] {
-  const { door, facing } = siteFor(id);
+  const { door, facing } = CANONICAL_LAYOUT.siteFor(id);
   const out = id === "library" ? 2.8 : 0;
   return SIDES.map((s) => ({
     x: door.x + out * Math.sin(facing) + s * 0.6 * Math.cos(facing),
@@ -1309,7 +1441,11 @@ const TALL_FACES = [
   ["-z", -5.8],
 ] as const;
 
-export function buildLibrary(pal: Palette, look: SiteLook) {
+export function buildLibrary(
+  pal: Palette,
+  look: SiteLook,
+  layout: CampusLayout = CANONICAL_LAYOUT,
+) {
   const P = paint(pal);
   const c = siteColours(pal, pal.lib, look);
   const open = look !== "coming_soon";
@@ -1382,16 +1518,25 @@ export function buildLibrary(pal: Palette, look: SiteLook) {
       );
     }
   }
-  return merge(parts);
+  return buildAnchoredGeometry(
+    merge(parts),
+    layout,
+    CANONICAL_LAYOUT.siteFor("library").centre,
+    layout.siteFor("library").centre,
+  );
 }
 
-export function buildWatchtower(pal: Palette, look: SiteLook) {
+export function buildWatchtower(
+  pal: Palette,
+  look: SiteLook,
+  layout: CampusLayout = CANONICAL_LAYOUT,
+) {
   const P = paint(pal);
   const c = siteColours(pal, pal.wt, look);
   const open = look !== "coming_soon";
   const ao = { ao: true };
   const slot = { emissive: look === "lit" };
-  return merge([
+  const geometry = merge([
     P(box(8.8, 12.0, 0, 0.25, -6.0, -1.0), c.trim, ao),
     P(box(9.0, 11.8, 0.25, 1.45, -3.8, -1.2), c.wall, ao),
     P(box(8.95, 11.85, 1.45, 1.53, -3.85, -1.15), c.trim),
@@ -1444,9 +1589,15 @@ export function buildWatchtower(pal: Palette, look: SiteLook) {
           ...[2.1, 2.9].map((y) => P(box(9.6, 11.6, y, y + 0.06, b0, b1), c.trunk)),
         ])),
   ]);
+  return buildAnchoredGeometry(
+    geometry,
+    layout,
+    CANONICAL_LAYOUT.siteFor("watchtower").centre,
+    layout.siteFor("watchtower").centre,
+  );
 }
 
-export function buildMarket(pal: Palette, look: SiteLook) {
+export function buildMarket(pal: Palette, look: SiteLook, layout: CampusLayout = CANONICAL_LAYOUT) {
   const P = paint(pal);
   const c = siteColours(pal, pal.mk, look);
   const stalls = [7.9, 9.0, 10.1];
@@ -1460,7 +1611,7 @@ export function buildMarket(pal: Palette, look: SiteLook) {
     { x: 10.75, z: 3.9 },
   ];
   const tilt = 0.3805;
-  return merge([
+  const geometry = merge([
     P(box(7.0, 11.0, 0, 0.2, 2.6, 5.2), c.trim, { ao: true }),
     ...columns.map(({ x, z }) => P(cyl(0.08, 0.09, 8, 0.2, 1.75, x, z), c.wall)),
     P(box(6.95, 11.05, 1.75, 1.95, 2.55, 5.25), c.trim),
@@ -1503,6 +1654,12 @@ export function buildMarket(pal: Palette, look: SiteLook) {
           ...[0.9, 1.9].map((y) => P(box(b0, b1, y, y + 0.06, 2.7, 5.1), c.trunk)),
         ])),
   ]);
+  return buildAnchoredGeometry(
+    geometry,
+    layout,
+    CANONICAL_LAYOUT.siteFor("market").centre,
+    layout.siteFor("market").centre,
+  );
 }
 
 const L = (geometry: BufferGeometry, color: Color) => part(geometry, { color }, null);
@@ -1529,9 +1686,13 @@ export function buildLan(pal: Palette) {
   ]);
 }
 
-export function buildNpcs(pal: Palette, looks: CampusTheme["npcs"]) {
+export function buildNpcs(
+  pal: Palette,
+  looks: CampusTheme["npcs"],
+  npcs: CampusLayout["npcs"] = CANONICAL_LAYOUT.npcs,
+) {
   return merge(
-    NPCS.flatMap(({ id, spot, yaw }) => {
+    npcs.flatMap(({ id, spot, yaw }) => {
       const look = looks[id];
       const at = (geometry: BufferGeometry) =>
         geometry.rotateY(yaw).translate(spot.x, 0.045, spot.z);

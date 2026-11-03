@@ -1,7 +1,7 @@
 import { hasStar, STARS_SAVED, type Progress } from "~/features/progress/progress";
 import type { ZoneLocation, ZoneStatus, ZoneSummary } from "~/features/zones/schema";
 
-import { SITES, SPEAKERS, type NpcId, type Speaker, type Vec2 } from "./layout";
+import type { CampusLayout, NpcId, Speaker, Vec2 } from "./layout";
 
 export const DEFAULT_STATUS: Readonly<Record<ZoneLocation, ZoneStatus>> = {
   library: "open",
@@ -64,13 +64,34 @@ export function siteLooks(
 
 export type InteractTarget = Speaker | ZoneLocation;
 
-export const INTERACT_POINTS: readonly { id: InteractTarget; door: Vec2 }[] = [
-  ...SPEAKERS.map(({ id, spot }) => ({ id, door: spot })),
-  ...SITES.map((site) => ({ id: site.id, door: site.door })),
-];
+interface InteractPoint {
+  id: InteractTarget;
+  door: Vec2;
+}
 
-export const isSpeaker = (target: InteractTarget): target is Speaker =>
-  SPEAKERS.some(({ id }) => id === target);
+const interactPointsCache = new WeakMap<CampusLayout, readonly InteractPoint[]>();
+
+export function interactPoints(layout: CampusLayout): readonly InteractPoint[] {
+  let points = interactPointsCache.get(layout);
+  if (!points) {
+    points = [
+      ...layout.speakers.map(({ id, spot }) => ({ id, door: spot })),
+      ...layout.sites.map((site) => ({ id: site.id, door: site.door })),
+    ];
+    interactPointsCache.set(layout, points);
+  }
+  return points;
+}
+
+const SPEAKER_IDS: ReadonlySet<string> = new Set<Speaker>([
+  "lan",
+  "registrar",
+  "guard",
+  "examiner",
+  "operator",
+]);
+
+export const isSpeaker = (target: InteractTarget): target is Speaker => SPEAKER_IDS.has(target);
 
 export type NpcNames = Readonly<Record<NpcId, { name: string }>>;
 

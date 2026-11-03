@@ -3,6 +3,7 @@ import type { BufferGeometry } from "three";
 
 import type { CampusTheme } from "~/features/theme/schema";
 
+import type { CampusLayout } from "../layout";
 import type { SiteLook } from "../sites";
 import type { Bake, Phase } from "../sky";
 import {
@@ -20,7 +21,7 @@ import {
   buildTerrain,
   buildWatchtower,
   RING_SEGMENTS,
-  TREE_INSTANCES,
+  treeInstancesFor,
   treesInShade,
   type TreeInstance,
 } from "./campus";
@@ -44,6 +45,8 @@ export interface CampusGeometry {
   player: BufferGeometry;
   lan: BufferGeometry;
   npcs: BufferGeometry;
+  roundTreeCount: number;
+  cypressCount: number;
 }
 
 function useDisposable(geometry: BufferGeometry): BufferGeometry {
@@ -58,38 +61,56 @@ export function useCampusGeometry(
   library: SiteLook,
   watchtower: SiteLook,
   market: SiteLook,
+  layout: CampusLayout,
 ): CampusGeometry {
   const pal = useMemo(() => palette(campus, phase, bake), [campus, phase, bake]);
   const base = useMemo(() => palette(campus), [campus]);
   const { archetype, colonnades } = campus.landmark;
+  const treeCounts = useMemo(() => {
+    const trees = treeInstancesFor(layout);
+    const roundTreeCount = trees.filter((tree) => tree.kind === "round").length;
+    return { roundTreeCount, cypressCount: trees.length - roundTreeCount };
+  }, [layout]);
   return {
     palette: pal,
     base,
-    terrain: useDisposable(useMemo(() => buildTerrain(pal, colonnades), [pal, colonnades])),
-    shadow: useDisposable(
-      useMemo(() => buildShadows(pal, archetype, colonnades), [pal, archetype, colonnades]),
+    terrain: useDisposable(
+      useMemo(() => buildTerrain(pal, colonnades, layout), [pal, colonnades, layout]),
     ),
-    ao: useDisposable(useMemo(() => buildAo(pal, colonnades), [pal, colonnades])),
+    shadow: useDisposable(
+      useMemo(
+        () => buildShadows(pal, archetype, colonnades, layout),
+        [pal, archetype, colonnades, layout],
+      ),
+    ),
+    ao: useDisposable(useMemo(() => buildAo(pal, colonnades, layout), [pal, colonnades, layout])),
     shadedTrees: useMemo(
-      () => treesInShade(pal, archetype, colonnades),
-      [pal, archetype, colonnades],
+      () => treesInShade(pal, archetype, colonnades, layout),
+      [pal, archetype, colonnades, layout],
     ),
     landmark: useDisposable(
-      useMemo(() => buildLandmark(pal, archetype, colonnades), [pal, archetype, colonnades]),
+      useMemo(
+        () => buildLandmark(pal, archetype, colonnades, layout),
+        [pal, archetype, colonnades, layout],
+      ),
     ),
-    library: useDisposable(useMemo(() => buildLibrary(pal, library), [pal, library])),
-    watchtower: useDisposable(useMemo(() => buildWatchtower(pal, watchtower), [pal, watchtower])),
-    market: useDisposable(useMemo(() => buildMarket(pal, market), [pal, market])),
+    library: useDisposable(
+      useMemo(() => buildLibrary(pal, library, layout), [pal, library, layout]),
+    ),
+    watchtower: useDisposable(
+      useMemo(() => buildWatchtower(pal, watchtower, layout), [pal, watchtower, layout]),
+    ),
+    market: useDisposable(useMemo(() => buildMarket(pal, market, layout), [pal, market, layout])),
     roundTree: useDisposable(useMemo(() => buildRoundTree(base), [base])),
     cypress: useDisposable(useMemo(() => buildCypress(base), [base])),
     player: useDisposable(useMemo(() => buildPlayer(base), [base])),
     lan: useDisposable(useMemo(() => buildLan(base), [base])),
-    npcs: useDisposable(useMemo(() => buildNpcs(base, campus.npcs), [base, campus.npcs])),
+    npcs: useDisposable(
+      useMemo(() => buildNpcs(base, campus.npcs, layout.npcs), [base, campus.npcs, layout.npcs]),
+    ),
+    ...treeCounts,
   };
 }
-
-const ROUND_TREES = TREE_INSTANCES.filter((tree) => tree.kind === "round").length;
-const CYPRESSES = TREE_INSTANCES.length - ROUND_TREES;
 
 export const castTriangles = (cast: CastJson) =>
   CAST_ROLES.reduce(
@@ -112,8 +133,8 @@ export function sceneBudget(
       };
   const triangles =
     statics.reduce((sum, geometry) => sum + triangleCount(geometry), 0) +
-    triangleCount(g.roundTree) * ROUND_TREES +
-    triangleCount(g.cypress) * CYPRESSES +
+    triangleCount(g.roundTree) * g.roundTreeCount +
+    triangleCount(g.cypress) * g.cypressCount +
     people.triangles +
     BLOB_SEGMENTS +
     RING_SEGMENTS * 2;

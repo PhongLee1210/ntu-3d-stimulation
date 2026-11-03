@@ -1,0 +1,97 @@
+{
+  "id": "ntu",
+  "name": "Khuôn viên đồi La San",
+  "brand": {
+    "programName": "AI 20K",
+    "orgName": "Trường Đại học Nha Trang",
+    "disclaimer": "Dự án học tập độc lập, lấy cảm hứng từ khuôn viên Trường Đại học Nha Trang. Không phải sản phẩm chính thức của Trường Đại học Nha Trang."
+  },
+  "place": { "name": "Nha Trang", "lat": 12.2529, "lon": 109.1908, "timeZone": "Asia/Ho_Chi_Minh" },
+  "fonts": {
+    "preload": [
+      "fonts/be-vietnam-pro-latin-400-normal.woff2",
+      "fonts/be-vietnam-pro-vietnamese-400-normal.woff2"
+    ]
+  },
+  "hero": {
+    "sources": [{ "src": "images/hero.svg", "width": 1600 }],
+    "width": 1600,
+    "height": 900,
+    "alt": "",
+    "credit": null
+  },
+  "campus": {
+    "ground": "#a9b878",
+    "path": "#d8d2c6",
+    "plaza": "#b9775f",
+    "water": "#2f9ec4",
+    "foliage": "#5c8c4a",
+    "trunk": "#6f5a3e",
+    "player": "#4a489d",
+    "npc": "#8a5a1e",
+    "landmark": {
+      "archetype": "seafront-slab",
+      "name": "Giảng đường hướng biển",
+      "wall": "#efe9dc",
+      "trim": "#f6f4ee",
+      "roof": "#b7c0b4",
+      "accent": "#4a489d",
+      "colonnades": false,
+      "parapetSign": true
+    },
+    "buildings": {
+      "library": { "wall": "#cbecec", "trim": "#dcd8cc", "roof": "#2f7f86" },
+      "watchtower": { "wall": "#cbecec", "trim": "#f6f4ee", "roof": "#b7c0b4" },
+      "market": { "wall": "#cbecec", "trim": "#dcd8cc", "roof": "#c4705a" }
+    },
+    "lights": {
+      "dawn": {
+        "sky": "#e6e8ff",
+        "ground": "#cbc3cf",
+        "hemisphere": 1.72,
+        "sun": "#ffc2a6",
+        "sunIntensity": 1.55,
+        "sunDirection": [0.7, 0.55, 0.3],
+        "rim": 0.5
+      },
+      "day": {
+        "sky": "#d0e5ff",
+        "ground": "#bfb5a9",
+        "hemisphere": 3.054,
+        "sun": "#ffd059",
+        "sunIntensity": 1.561,
+        "sunDirection": [-0.35, 1, 0.75],
+        "rim": 0.25
+      },
+      "dusk": {
+        "sky": "#9dccff",
+        "ground": "#f4d9f2",
+        "hemisphere": 1.262,
+        "sun": "#ffb736",
+        "sunIntensity": 2.661,
+        "sunDirection": [-0.62, 0.55, 0.6],
+        "rim": 0.6
+      },
+      "night": {
+        "sky": "#8ea3d6",
+        "ground": "#606b8a",
+        "hemisphere": 0.95,
+        "sun": "#c9d6ff",
+        "sunIntensity": 0.42,
+        "sunDirection": [-0.35, 1, 0.75],
+        "rim": 0.1
+      }
+    },
+    "npcs": {
+      "guard": { "name": "chú bảo vệ", "top": "#f3f2ee", "bottom": "#23262b", "accent": "#0048a8" },
+      "registrar": {
+        "name": "chị Thuỷ",
+        "top": "#0048a8",
+        "bottom": "#2a2a2e",
+        "accent": "#f8a818"
+      },
+      "operator": { "name": "cô Mơ", "top": "#48b4e7", "bottom": "#2f3640", "accent": "#4a489d" },
+      "examiner": { "name": "thầy Nam", "top": "#a8bbd0", "bottom": "#3b3f46", "accent": "#ec2028" }
+    }
+  }
+}

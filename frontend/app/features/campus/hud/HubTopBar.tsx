@@ -10,8 +10,8 @@ import { ZoneCard, ZonesErrorNotice } from "~/features/zones/ZoneCard";
 import { AUTHOR } from "~/lib/site";
 import { useDelayedFlag } from "~/lib/useSettled";
 
-import { BACK_SPOT, BACK_Z, NPCS, SPAWN, type Speaker } from "../layout";
-import { hubStore } from "../store";
+import type { Speaker } from "../layout";
+import { hubStore, useHub } from "../store";
 import { WeatherChip } from "./WeatherChip";
 
 const PANEL_ID = "hub-zone-list";
@@ -31,6 +31,7 @@ export function HubTopBar({ zones, onTalk, onRetry }: HubTopBarProps) {
   const showSkeleton = useDelayedFlag(zones === undefined, 300);
   const { campus, place } = useActiveTheme();
   const { npcs } = campus;
+  const layout = useHub((state) => state.layout);
 
   useEffect(() => {
     if (!open) return;
@@ -76,7 +77,7 @@ export function HubTopBar({ zones, onTalk, onRetry }: HubTopBarProps) {
           aria-expanded={open}
           aria-controls={PANEL_ID}
           onClick={() => {
-            setInBack(hubStore.getState().motion.position.z < BACK_Z);
+            setInBack(hubStore.getState().motion.position.z < layout.backZ);
             setOpen((value) => !value);
           }}
           className={buttonClass("secondary")}
@@ -105,7 +106,7 @@ export function HubTopBar({ zones, onTalk, onRetry }: HubTopBarProps) {
               Nói chuyện với cô Lan
             </button>
           </li>
-          {NPCS.map(({ id }) => (
+          {layout.npcs.map(({ id }) => (
             <li key={id}>
               <button
                 type="button"
@@ -122,7 +123,7 @@ export function HubTopBar({ zones, onTalk, onRetry }: HubTopBarProps) {
               onClick={() => {
                 setOpen(false);
                 toggleRef.current?.focus();
-                hubStore.getState().walkTo(inBack ? SPAWN : BACK_SPOT);
+                hubStore.getState().walkTo(inBack ? layout.spawn : layout.backSpot);
               }}
               className="min-h-12 w-full px-4 text-left text-sm font-semibold hover:bg-subtle"
             >

@@ -4,6 +4,7 @@ import {
   AdditiveBlending,
   Color,
   GreaterDepth,
+  Matrix4,
   MeshBasicMaterial,
   MeshLambertMaterial,
   MultiplyBlending,
@@ -24,14 +25,17 @@ import type { CampusTheme } from "~/features/theme/schema";
 import { cameraOffset } from "../camera";
 import { advanceScene, sceneLoad, sceneMounted, STAGE, type SceneLoad } from "../hud/sceneLoad";
 import { ViewControls } from "../hud/ViewControls";
-import { NPC_SPOT, NPCS, SITES } from "../layout";
+import { layoutFor, WORLD_BOUNDS, type CampusLayout, type Vec2 } from "../layout";
 import { siteLooks, type InteractTarget, type SiteInfoMap } from "../sites";
 import type { SceneLook } from "../sky";
 import { hubStore } from "../store";
 import {
   BLOB_SEGMENTS,
+  PARAPET_FIN_Y,
+  parapetFinGeometry,
+  parapetFinSpots,
   RING_SEGMENTS,
-  TREE_INSTANCES,
+  treeInstancesFor,
   treeMatrix,
   type TreeInstance,
 } from "./campus";
@@ -47,8 +51,6 @@ export interface CampusSceneProps {
   look: SceneLook;
 }
 
-const ROUND = TREE_INSTANCES.filter((tree) => tree.kind === "round");
-const CYPRESS = TREE_INSTANCES.filter((tree) => tree.kind === "cypress");
 const FLAT = -Math.PI / 2;
 const BLACK = new Color(0, 0, 0);
 const MULTIPLY = {
@@ -60,7 +62,11 @@ const MULTIPLY = {
 } as const;
 
 export default function CampusScene({ sites, onInteract, look }: CampusSceneProps) {
-  const { campus } = useActiveTheme();
+  const { campus, id: themeId } = useActiveTheme();
+  const layout = useMemo(() => layoutFor(themeId), [themeId]);
+  useEffect(() => {
+    hubStore.getState().setLayout(layout);
+  }, [layout]);
   const reducedMotion = useMediaQuery(REDUCED_MOTION);
   const smallOrTouch = useMediaQuery("(pointer: coarse), (max-width: 767.98px)");
   const [countFrames] = useState(
@@ -90,6 +96,7 @@ export default function CampusScene({ sites, onInteract, look }: CampusSceneProp
         >
           <Campus
             campus={campus}
+            layout={layout}
             look={baked}
             sites={sites}
             options={{ reducedMotion, countFrames, rebaking: look !== baked, onInteract }}
@@ -119,6 +126,7 @@ function SceneReady() {
 
 interface CampusProps {
   campus: CampusTheme;
+  layout: CampusLayout;
   look: SceneLook;
   sites: SiteInfoMap;
   options: Omit<Parameters<typeof useHubFrame>[0], "castPending" | "figures">;
@@ -126,7 +134,7 @@ interface CampusProps {
 
 const painted = (s: SceneLoad) => s.stage >= STAGE.done;
 
-function Campus({ campus, look, sites, options }: CampusProps) {
+function Campus({ campus, layout, look, sites, options }: CampusProps) {
   const [progress] = useState(readProgress);
   const looks = siteLooks(sites, progress);
   const g = useCampusGeometry(
@@ -136,9 +144,14 @@ function Campus({ campus, look, sites, options }: CampusProps) {
     looks.library,
     looks.watchtower,
     looks.market,
+    layout,
   );
   const { preset } = g.palette;
   const sunPosition = useMemo(() => g.palette.light.sun.clone().multiplyScalar(30), [g.palette]);
+  const hasDressing = layout.worldBounds === WORLD_BOUNDS;
+  const trees = useMemo(() => treeInstancesFor(layout), [layout]);
+  const round = useMemo(() => trees.filter((tree) => tree.kind === "round"), [trees]);
+  const cypress = useMemo(() => trees.filter((tree) => tree.kind === "cypress"), [trees]);
   const dressing = useDressing(g.palette);
   const [cast, setCast] = useState<CastJson | null | undefined>(undefined);
   useEffect(() => {
@@ -176,6 +189,7 @@ function Campus({ campus, look, sites, options }: CampusProps) {
         stencilZPass: ReplaceStencilOp,
       }),
       ao: new MeshBasicMaterial(MULTIPLY),
+      parapet: new MeshBasicMaterial(),
     }),
     [],
   );
@@ -183,7 +197,16 @@ function Campus({ campus, look, sites, options }: CampusProps) {
     () => () => Object.values(materials).forEach((material: Material) => material.dispose()),
     [materials],
   );
-  const figures = useMemo(() => (cast ? castFigures(cast, materials) : null), [cast, materials]);
+  const figures = useMemo(
+    () => (cast ? castFigures(cast, materials, layout) : null),
+    [cast, materials, layout],
+  );
+  const finGeometry = useMemo(() => parapetFinGeometry(), []);
+  useEffect(() => () => finGeometry.dispose(), [finGeometry]);
+  const finSpots = useMemo(
+    () => parapetFinSpots(campus.landmark.archetype, layout),
+    [campus.landmark.archetype, layout],
+  );
   useEffect(
     () => () => {
       if (!figures) return;
@@ -204,6 +227,7 @@ function Campus({ campus, look, sites, options }: CampusProps) {
     materials.xray.color.copy(g.base.xray);
     materials.ring.color.copy(pal.ring);
     materials.figure.color.setScalar(pal.figureLift);
+    materials.parapet.color.set(campus.landmark.accent);
     materials.blob.setValues({
       blending: pool ? AdditiveBlending : NormalBlending,
       color: pool ? pal.glow : BLACK,
@@ -211,7 +235,7 @@ function Campus({ campus, look, sites, options }: CampusProps) {
     });
     playerBlob.current?.scale.setScalar(pool ? 2.2 : 1);
     wake();
-  }, [materials, g.palette, g.base, playerBlob, wake]);
+  }, [materials, g.palette, g.base, playerBlob, wake, campus.landmark.accent]);
   useEffect(wake, [look, wake]);
   useLayoutEffect(() => {
     if (!figures || !cast) return;
@@ -220,7 +244,7 @@ function Campus({ campus, look, sites, options }: CampusProps) {
       paintFigure(mesh, cast.roles[who], looks);
     paint("player", figures.player.mesh, { top: pal.player, bottom: pal.pants });
     paint("lan", figures.people.lan.mesh, { top: pal.npc, bottom: pal.lanSkirt });
-    for (const { id } of NPCS) {
+    for (const { id } of layout.npcs) {
       const look = campus.npcs[id];
       paint(id, figures.people[id].mesh, {
         top: new Color(look.top),
@@ -229,7 +253,7 @@ function Campus({ campus, look, sites, options }: CampusProps) {
       });
     }
     wake();
-  }, [figures, cast, g.base, campus.npcs, wake]);
+  }, [figures, cast, g.base, campus.npcs, layout.npcs, wake]);
   useEffect(() => {
     if (options.countFrames) {
       document.documentElement.dataset.cast =
@@ -259,12 +283,15 @@ function Campus({ campus, look, sites, options }: CampusProps) {
       <group ref={statics}>
         <mesh geometry={g.terrain} material={materials.baked} />
         <mesh geometry={g.landmark} material={materials.baked} />
-        {dressing && <mesh geometry={dressing} material={materials.baked} />}
-        {SITES.map(({ id }) => (
+        {hasDressing && dressing && <mesh geometry={dressing} material={materials.baked} />}
+        {layout.sites.map(({ id }) => (
           <mesh key={id} geometry={g[id]} material={materials.baked} userData={{ site: id }} />
         ))}
-        <Trees geometry={g.roundTree} material={materials.tree} trees={ROUND} g={g} />
-        <Trees geometry={g.cypress} material={materials.tree} trees={CYPRESS} g={g} />
+        <Trees geometry={g.roundTree} material={materials.tree} trees={round} g={g} />
+        <Trees geometry={g.cypress} material={materials.tree} trees={cypress} g={g} />
+        {campus.landmark.parapetSign && finSpots.length > 0 && (
+          <ParapetFins geometry={finGeometry} material={materials.parapet} spots={finSpots} />
+        )}
       </group>
       <mesh geometry={g.shadow} material={materials.shadow} />
       <mesh geometry={g.ao} material={materials.ao} />
@@ -283,7 +310,7 @@ function Campus({ campus, look, sites, options }: CampusProps) {
         <circleGeometry args={[0.36, BLOB_SEGMENTS]} />
       </mesh>
 
-      <group ref={lan} position={[NPC_SPOT.x, FIGURE_Y, NPC_SPOT.z]}>
+      <group ref={lan} position={[layout.npcSpot.x, FIGURE_Y, layout.npcSpot.z]}>
         {figures ? (
           <primitive object={figures.people.lan.body} />
         ) : (
@@ -291,7 +318,7 @@ function Campus({ campus, look, sites, options }: CampusProps) {
         )}
       </group>
       {figures ? (
-        NPCS.map(({ id }) => <primitive key={id} object={figures.people[id].body} />)
+        layout.npcs.map(({ id }) => <primitive key={id} object={figures.people[id].body} />)
       ) : (
         <mesh geometry={g.npcs} material={materials.figure} />
       )}
@@ -328,5 +355,27 @@ function Trees(props: {
   }, [geometry, trees, palette, shadedTrees]);
   return (
     <instancedMesh ref={ref} args={[geometry, material, trees.length]} frustumCulled={false} />
+  );
+}
+
+const finMatrix = new Matrix4();
+
+function ParapetFins(props: {
+  geometry: BufferGeometry;
+  material: Material;
+  spots: readonly Vec2[];
+}) {
+  const { geometry, material, spots } = props;
+  const ref = useRef<InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    spots.forEach(({ x, z }, i) => {
+      mesh.setMatrixAt(i, finMatrix.makeTranslation(x, PARAPET_FIN_Y, z));
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [geometry, spots]);
+  return (
+    <instancedMesh ref={ref} args={[geometry, material, spots.length]} frustumCulled={false} />
   );
 }

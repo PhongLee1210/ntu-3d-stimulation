@@ -25,7 +25,7 @@ The user writes Vietnamese; UI copy is Vietnamese, sentence case, verb-first but
 
 ## Commands
 
-- Frontend: `npm run check`, `npm run build`, `npm run test:e2e` (in `frontend/`).
+- Frontend: `bun run check`, `bun run build`, `bun run test:e2e` (in `frontend/`).
 - Backend: `uv run ruff check`, `uv run mypy src tests`, `uv run pytest` (in `backend/`).
 
 ### Validation Hierarchy

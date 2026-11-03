@@ -45,6 +45,36 @@
           "sha256": "dd12b2e75ffb1cdb45aaec3916c3d6e732929ccb4a8b89b946f69baaabfa64da"
         },
         {
+          "path": "Models/GLB format/character-female-b.glb",
+          "as": "character-female-b.glb",
+          "sha256": "2288438e7baf9acc91a870c82dc00d66710bb486592cfc3474ef8ed93a03863a"
+        },
+        {
+          "path": "Models/GLB format/character-female-c.glb",
+          "as": "character-female-c.glb",
+          "sha256": "3cd9e1b5d6409fce0ba1af617d9e008c3069493185a4c100f49fb99a2626a055"
+        },
+        {
+          "path": "Models/GLB format/character-female-e.glb",
+          "as": "character-female-e.glb",
+          "sha256": "3ee3939f80d718945fcb9199f909a92c39669e38aeec7f544536b5dce6e79f98"
+        },
+        {
+          "path": "Models/GLB format/character-male-b.glb",
+          "as": "character-male-b.glb",
+          "sha256": "791fc0c203924c175c0a3d5b60d030daf36797b039506689cf7cd01ef5253b3c"
+        },
+        {
+          "path": "Models/GLB format/character-male-e.glb",
+          "as": "character-male-e.glb",
+          "sha256": "cd76681090ce29861b055b0f8b2bdcf84bfccc4ca816f428df42a9bb76d6e1b6"
+        },
+        {
+          "path": "Models/GLB format/character-male-f.glb",
+          "as": "character-male-f.glb",
+          "sha256": "ed151fc47c5cd6be9693c524e92f045170c965819f4f81b28ed66dcc3c1085bf"
+        },
+        {
           "path": "Models/GLB format/Textures/colormap.png",
           "as": "mini-characters/colormap.png",
           "sha256": "0d4947d34ff32acf4a359c7f22ca784e057e7e72f622170a9a77b6fc88fdb70e"

@@ -94,7 +94,7 @@ Theo hướng gameplay §4 và art direction §1.3:
 - Sao vàng ngoài `top_k` phải có nhãn hạng; test bằng chính `lib-l3-v01` (`ranks: {vs: 72}`, `in_pack: false`).
 - Ca ẩn và ca bẫy **không** sinh sao vàng, kể cả khi truyền nhầm: khẳng định `starField` bỏ qua ca không có trong `report.gold`.
 - Danh sách DOM và canvas luôn cùng số sao.
-- Ngân sách: `npm run build` giữ bàn thợ dưới 120 kB và không có three.js trong chunk của nó.
+- Ngân sách: `bun run build` giữ bàn thợ dưới 120 kB và không có three.js trong chunk của nó.
 
 ## 9b. Sửa sau vòng soát cả nhánh (2026-10-11)
 

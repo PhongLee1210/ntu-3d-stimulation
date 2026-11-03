@@ -29,20 +29,9 @@ import {
   wrapAngle,
 } from "../camera";
 import { sceneLoad, STAGE } from "../hud/sceneLoad";
-import {
-  INTERACT_RADIUS,
-  NPCS,
-  OBSTACLES,
-  SITES,
-  speakerSpot,
-  SPEAKERS,
-  talkSpot,
-  WORLD_BOUNDS,
-  type Speaker,
-  type Vec2,
-} from "../layout";
+import type { CampusLayout, Speaker, Vec2 } from "../layout";
 import { isMovementKey, nearestWithin, step } from "../movement";
-import { INTERACT_POINTS, type InteractTarget } from "../sites";
+import { interactPoints, type InteractTarget } from "../sites";
 import { easeView, hubStore, type HubDialog } from "../store";
 import {
   buildFigure,
@@ -78,6 +67,7 @@ export interface Figures {
 export function castFigures(
   cast: CastJson,
   materials: Record<"figure" | "xray", Material>,
+  layout: CampusLayout,
 ): Figures {
   const clips = castClips(cast);
   const make = (role: CastRole): CastFigure => {
@@ -94,11 +84,11 @@ export function castFigures(
   xray.renderOrder = 1;
   player.mesh.renderOrder = 2;
   player.body.add(xray);
-  const people = Object.fromEntries(SPEAKERS.map(({ id }) => [id, make(id)])) as Record<
+  const people = Object.fromEntries(layout.speakers.map(({ id }) => [id, make(id)])) as Record<
     Speaker,
     CastFigure
   >;
-  for (const { id, spot, yaw } of NPCS) {
+  for (const { id, spot, yaw } of layout.npcs) {
     people[id].body.position.set(spot.x, FIGURE_Y, spot.z);
     people[id].body.rotation.y = yaw;
   }
@@ -206,14 +196,18 @@ export function pickNpc<T>(
   return best;
 }
 
-export function clickGoal(ray: Raycaster, statics: Object3D | null): Vec2 | null {
+export function clickGoal(
+  ray: Raycaster,
+  statics: Object3D | null,
+  layout: CampusLayout,
+): Vec2 | null {
   const [surface] = statics ? ray.intersectObject(statics, true) : [];
   const point = surface?.point ?? ray.ray.intersectPlane(groundPlane, hit);
   if (!point) return null;
   const tag: unknown = surface?.object.userData.site;
   const site =
-    SITES.find(({ id }) => id === tag) ??
-    SITES.find(
+    layout.sites.find(({ id }) => id === tag) ??
+    layout.sites.find(
       ({ footprint: f }) =>
         Math.abs(point.x - f.x) <= f.halfX + 0.2 && Math.abs(point.z - f.z) <= f.halfZ + 0.2,
     );
@@ -251,8 +245,9 @@ export function useHubFrame(options: {
 
   const anim = useRef({
     yaw: hubStore.getState().motion.heading,
-    people: SPEAKERS.map(({ id, spot }) => {
-      const rest = NPCS.find((npc) => npc.id === id)?.yaw ?? LAN_REST_YAW;
+    people: hubStore.getState().layout.speakers.map(({ id, spot }) => {
+      const rest =
+        hubStore.getState().layout.npcs.find((npc) => npc.id === id)?.yaw ?? LAN_REST_YAW;
       return { who: id, spot, rest, yaw: rest, target: rest, armed: false };
     }),
     lastDialog: null as HubDialog | null,
@@ -392,16 +387,16 @@ export function useHubFrame(options: {
         -((event.clientY - rect.top) / rect.height) * 2 + 1,
       );
       raycaster.setFromCamera(pointer, camera);
-      const who = pickNpc(raycaster, statics.current, SPEAKERS);
+      const who = pickNpc(raycaster, statics.current, state.layout.speakers);
       if (who) {
         if (state.nearby === who) {
           onInteract.current(who);
           return;
         }
-        state.walkTo(talkSpot(who));
+        state.walkTo(state.layout.talkSpot(who));
         state.motion.talkOnArrival = who;
       } else {
-        const goal = clickGoal(raycaster, statics.current);
+        const goal = clickGoal(raycaster, statics.current, state.layout);
         if (goal) state.walkTo(goal);
       }
     };
@@ -440,8 +435,8 @@ export function useHubFrame(options: {
       motion.position,
       { keys: motion.keys, target: motion.target, yaw: v.yaw },
       dt,
-      OBSTACLES,
-      WORLD_BOUNDS,
+      state.layout.obstacles,
+      state.layout.worldBounds,
     );
     const stride = Math.hypot(
       moved.position.x - motion.position.x,
@@ -456,7 +451,9 @@ export function useHubFrame(options: {
     motion.position = moved.position;
     if (moved.heading !== null) motion.heading = moved.heading;
 
-    const near = nearestWithin(motion.position, INTERACT_POINTS, INTERACT_RADIUS)?.id ?? null;
+    const near =
+      nearestWithin(motion.position, interactPoints(state.layout), state.layout.interactRadius)
+        ?.id ?? null;
     state.setNearby(near);
     if (moved.targetDone) {
       motion.target = motion.route.shift() ?? null;
@@ -508,7 +505,7 @@ export function useHubFrame(options: {
       a.ringTime = reduced ? RING_TOTAL : 0;
     }
     if (ringMesh) {
-      const point = INTERACT_POINTS.find((p) => p.id === near);
+      const point = interactPoints(state.layout).find((p) => p.id === near);
       ringMesh.visible = point !== undefined;
       if (point) {
         a.ringTime = Math.min(a.ringTime + dt, RING_TOTAL);
@@ -519,7 +516,7 @@ export function useHubFrame(options: {
     }
 
     const view = viewFor(size.width, size.height, state.sheetInset);
-    const at = state.dialog ? speakerSpot(state.dialog.who) : motion.position;
+    const at = state.dialog ? state.layout.speakerSpot(state.dialog.who) : motion.position;
     if (turned !== 0 && a.look) {
       a.look = rotateAbout(a.look, view.mode === "follow" ? at : PIVOT, turned);
     }

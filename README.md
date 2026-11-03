@@ -218,13 +218,13 @@ uv run uvicorn --factory vgame.main:create_app --reload --port 8000
 
 # terminal 2: frontend
 cd frontend
-npm ci
-npm run dev             # http://localhost:5173/play, /api proxy sang :8000
+bun install
+bun run dev             # http://localhost:5173/play, /api proxy sang :8000
 ```
 
 | Lệnh                                                                                        | Ở đâu       | Làm gì                                             |
 | ------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------- |
-| `npm run check && npm run build && npm run test:e2e`                                        | `frontend/` | Format, lint, type, unit, build kèm ngân sách, e2e |
+| `bun run check && bun run build && bun run test:e2e`                                        | `frontend/` | Format, lint, type, unit, build kèm ngân sách, e2e |
 | `uv run ruff check && uv run ruff format --check && uv run mypy src tests && uv run pytest` | `backend/`  | Lint, format, type, test offline với LLM giả       |
 | `lefthook install`                                                                          | gốc repo    | Git hook: gitleaks và lint file đã stage           |
 

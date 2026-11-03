@@ -26,13 +26,14 @@ import {
   disposeFigure,
   paintFigure,
   parseCast,
+  RESERVE_CAST_ROLES,
   setState,
   unpackIndex,
   updateAnim,
   type CastJson,
   type CastRole,
 } from "./cast";
-import { NPCS } from "../layout";
+import { layoutFor, NPCS } from "../layout";
 import { castFigures, FIGURE_Y } from "./useHubFrame";
 
 const FILE = path.resolve(process.cwd(), "public", "models", "cast.json");
@@ -100,7 +101,7 @@ describe("cast.json format", () => {
     ]);
     expect(cast.parents).toEqual([-1, 0, 0, 0, 3, 3, 3]);
     expect([cast.joints, cast.parents]).toEqual([CAST_JOINTS, CAST_PARENTS]);
-    expect(Object.keys(cast.roles).sort()).toEqual([...CAST_ROLES].sort());
+    expect(Object.keys(cast.roles).sort()).toEqual([...CAST_ROLES, ...RESERVE_CAST_ROLES].sort());
   });
 
   it("is the canonical output of the baker (no hand edits, no reformatting)", () => {
@@ -109,9 +110,9 @@ describe("cast.json format", () => {
 
   it("stays within its download budget", () => {
     const bytes = Buffer.from(text);
-    expect(bytes.length).toBeLessThanOrEqual(130_000);
-    expect(gzipSync(bytes).length).toBeLessThanOrEqual(23_000);
-    expect(brotliCompressSync(bytes).length).toBeLessThanOrEqual(16_000);
+    expect(bytes.length).toBeLessThanOrEqual(230_000);
+    expect(gzipSync(bytes).length).toBeLessThanOrEqual(36_000);
+    expect(brotliCompressSync(bytes).length).toBeLessThanOrEqual(23_000);
   });
 });
 
@@ -393,7 +394,11 @@ describe("cast animation (integration spec §5.1)", () => {
 describe("castFigures (integration spec §3)", () => {
   it("binds the x-ray to the player's skeleton and stands each NPC on its spot", () => {
     const xrayMaterial = new MeshBasicMaterial();
-    const { player, people } = castFigures(cast, { figure: material, xray: xrayMaterial });
+    const { player, people } = castFigures(
+      cast,
+      { figure: material, xray: xrayMaterial },
+      layoutFor("vinuni"),
+    );
     const xray = player.body.children.find((child) => child !== player.mesh) as SkinnedMesh;
     expect(xray.skeleton).toBe(player.mesh.skeleton);
     expect(xray.geometry).toBe(player.mesh.geometry);

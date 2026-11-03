@@ -90,6 +90,48 @@ const ROLES = {
       [["torso"], "#d3554e", "accent"],
     ],
   },
+  femaleB: {
+    file: "female-b",
+    rules: [
+      [TA, "#ff952f", "top"],
+      [LEGS, "#7e56ce", "bottom"],
+    ],
+  },
+  femaleC: {
+    file: "female-c",
+    rules: [
+      [TA, "#585abf", "top"],
+      [LEGS, "#797e96", "bottom"],
+    ],
+  },
+  femaleE: {
+    file: "female-e",
+    rules: [
+      [TA, "#585abf", "top"],
+      [LEGS, "#8b91ae", "bottom"],
+    ],
+  },
+  maleB: {
+    file: "male-b",
+    rules: [
+      [TA, "#fa6b41", "top"],
+      [LEGS, "#5b66c4", "bottom"],
+    ],
+  },
+  maleE: {
+    file: "male-e",
+    rules: [
+      [TA, "#c1c1d8", "top"],
+      [LEGS, "#797e96", "bottom"],
+    ],
+  },
+  maleF: {
+    file: "male-f",
+    rules: [
+      [TA, "#3aa378", "top"],
+      [LEGS, "#797e96", "bottom"],
+    ],
+  },
 };
 // Clips kept (source name -> baked name). "rest" = first key of idle (the frozen pose).
 // Sprint loses its 0.2-unit root hop (art direction: no bouncing).

@@ -1,5 +1,5 @@
 # Git hooks (https://lefthook.dev). Enable once per clone with `lefthook install`.
-# Needs gitleaks, npm (with frontend/node_modules installed) and uv on PATH.
+# Needs gitleaks, bun (with frontend/node_modules installed) and uv on PATH.
 #
 # Path handling: `glob` is matched against repo-relative paths, and `root` both limits the
 # job to files under that directory and rewrites {staged_files} relative to it, so
@@ -14,12 +14,12 @@ pre-commit:
     frontend-format:
       root: frontend/
       glob: "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,css,md,html,yml,yaml}"
-      run: npx --no -- prettier --check --ignore-unknown {staged_files}
+      run: bunx --no-install -- prettier --check --ignore-unknown {staged_files}
 
     frontend-lint:
       root: frontend/
       glob: "*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"
-      run: npx --no -- eslint --max-warnings=0 --no-warn-ignored {staged_files}
+      run: bunx --no-install -- eslint --max-warnings=0 --no-warn-ignored {staged_files}
 
     # --frozen: never rewrite uv.lock from inside a hook.
     backend-lint:

@@ -96,13 +96,14 @@ export const ThemeManifestSchema = v.strictObject({
     player: HexColor,
     npc: HexColor,
     landmark: v.strictObject({
-      archetype: v.picklist(["spire-hall", "clock-tower"]),
+      archetype: v.picklist(["spire-hall", "clock-tower", "seafront-slab"]),
       name: v.pipe(v.string(), v.nonEmpty()),
       wall: HexColor,
       trim: HexColor,
       roof: HexColor,
       accent: HexColor,
       colonnades: v.boolean(),
+      parapetSign: v.optional(v.boolean()),
     }),
     buildings: v.strictObject({
       library: BuildingColors,

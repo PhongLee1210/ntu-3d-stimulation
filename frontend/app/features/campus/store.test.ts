@@ -4,6 +4,7 @@ import { HOME_YAW, wrapAngle } from "./camera";
 import {
   BACK_SPOT,
   INTERACT_RADIUS,
+  layoutFor,
   NPC_SPOT,
   NPC_TALK_SPOT,
   NPCS,
@@ -13,24 +14,26 @@ import {
   towardFor,
 } from "./layout";
 import { nearestWithin } from "./movement";
-import { hintFor, INTERACT_POINTS, isSpeaker, siteInfo } from "./sites";
+import { hintFor, interactPoints, isSpeaker, siteInfo } from "./sites";
 import { createHubStore } from "./store";
+
+const layout = layoutFor("vinuni");
 
 describe("nearest interaction point", () => {
   it("picks the librarian from her talk spot and nothing from the spawn", () => {
-    expect(nearestWithin(NPC_TALK_SPOT, INTERACT_POINTS, INTERACT_RADIUS)?.id).toBe("lan");
-    expect(nearestWithin(SPAWN, INTERACT_POINTS, INTERACT_RADIUS)).toBeNull();
+    expect(nearestWithin(NPC_TALK_SPOT, interactPoints(layout), INTERACT_RADIUS)?.id).toBe("lan");
+    expect(nearestWithin(SPAWN, interactPoints(layout), INTERACT_RADIUS)).toBeNull();
   });
 
   it("picks each NPC from their talk spot", () => {
     for (const npc of NPCS) {
-      expect(nearestWithin(npc.talk, INTERACT_POINTS, INTERACT_RADIUS)?.id).toBe(npc.id);
+      expect(nearestWithin(npc.talk, interactPoints(layout), INTERACT_RADIUS)?.id).toBe(npc.id);
     }
   });
 
   it("picks a building from in front of its door", () => {
     for (const site of SITES) {
-      expect(nearestWithin(site.door, INTERACT_POINTS, INTERACT_RADIUS)?.id).toBe(site.id);
+      expect(nearestWithin(site.door, interactPoints(layout), INTERACT_RADIUS)?.id).toBe(site.id);
     }
   });
 });

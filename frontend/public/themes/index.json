@@ -1,6 +1,7 @@
 {
   "themes": [
     { "id": "vinuni", "name": "Khuôn viên VinUni" },
-    { "id": "town", "name": "Thị trấn" }
+    { "id": "town", "name": "Thị trấn" },
+    { "id": "ntu", "name": "Khuôn viên đồi La San" }
   ]
 }

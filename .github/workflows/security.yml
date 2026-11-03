@@ -85,7 +85,7 @@ jobs:
       - name: Scan lockfiles
         run: |
           status=0
-          osv-scanner scan source --lockfile frontend/package-lock.json --lockfile backend/uv.lock || status=$?
+          osv-scanner scan source --lockfile frontend/bun.lock --lockfile backend/uv.lock || status=$?
           if [ "$status" -eq 128 ]; then
             echo "::error::osv-scanner found no packages in the lockfiles."
           fi

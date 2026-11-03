@@ -108,7 +108,7 @@ tháng, mỗi lần build khoảng 3–5 phút.
 2. **Root Directory**: `frontend`. Framework preset: **Other** (đã khai báo trong `frontend/vercel.json`).
 3. **Environment Variables**: `VG_API_ORIGIN` = `https://<tên-service>.onrender.com` (không có `/`
    ở cuối). Không cần đặt biến theme: mặc định chỉ build theme town.
-4. Deploy. Build chạy `npm run build:vercel`: build như thường, rồi ghi `.vercel/output` với header
+4. Deploy. Build chạy `bun run build:vercel`: build như thường, rồi ghi `.vercel/output` với header
    bảo mật (CSP theo hash của từng bản build), proxy `/api/*` sang Render và SPA fallback.
 
 ## 3. Tên miền `vgame.ai20k.cloud` (đã chạy)
@@ -158,5 +158,5 @@ flowchart LR
 Merge vào `main` thì Vercel tự deploy lại; Render chỉ deploy khi CI xanh và phần API đổi (xem mục "Giữ Render ở mức 0 đồng"). Thử bản Vercel trên máy:
 
 ```bash
-cd frontend && VG_API_ORIGIN=https://example.onrender.com npm run build:vercel
+cd frontend && VG_API_ORIGIN=https://example.onrender.com bun run build:vercel
 ```

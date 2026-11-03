@@ -3,6 +3,9 @@
 - **Ngày:** 2026-10-07 · **Chủ sở hữu file:** coder.
 - **Sửa 2026-10-08:** thêm §8 (luật trực quan hoá, [roadmap-v0.4](roadmap-v0.4.md) N23); §1–§7 giữ nguyên.
 - **Sửa 2026-10-09 (v0.4, bộ nhân vật):** §1 thêm `scene/cast.ts` và `public/models/cast.json`; §3 cập nhật draw call, tam giác và mức chặn.
+- **Sửa 2026-11-03 (v0.5, 6 role dự phòng):** `bake-cast.mjs` bake thêm `femaleB/C/E`, `maleB/E/F`
+  (chưa gắn NPC/scene nào) từ cùng bộ Kenney mini-characters; `cast.json` 119 kB → 225 kB. §3 thêm
+  dòng ngân sách tải cho `cast.json`.
 - **Nguồn:** [build-brief-v0.1.md](build-brief-v0.1.md), [art-direction.md](art-direction.md).
 
 ## 1. Sơ đồ module
@@ -75,7 +78,8 @@ app/
 | Ngân sách | Thực tế | Ép bằng |
 |---|---|---|
 | Trang chủ không có three | 0 chunk | `scripts/check-bundle.mjs` (manifest + dò chuỗi `THREE.WebGLRenderer`) và `e2e/landing.spec.ts` (danh sách chunk từ `build/bundle-report.json`) |
-| `/play` ≤ 300 kB gzip ¹ | 292,8 kB (2026-10-09, sau giờ thật và thời tiết: +3,8 kB cho `sky.ts`, chip, lớp phủ, 9 icon; trước đó khoảng 289 kB) | `check-bundle.mjs` trong `npm run build`, fail nếu vượt |
+| `/play` ≤ 300 kB gzip ¹ | 292,8 kB (2026-10-09, sau giờ thật và thời tiết: +3,8 kB cho `sky.ts`, chip, lớp phủ, 9 icon; trước đó khoảng 289 kB) | `check-bundle.mjs` trong `bun run build`, fail nếu vượt |
+| `public/models/cast.json` ≤ 230 kB thô / 36 kB gzip / 23 kB brotli | v0.5: 225 kB / 35,3 kB / 22,1 kB (12 role, 6 chưa dùng trong scene) | `cast.test.ts` ("stays within its download budget") |
 | ≤ 40 draw call, ≤ 60k tam giác | v0.4: 14 khi còn tượng, 17 khi bộ nhân vật Kenney đã tải (6 SkinnedMesh + x-ray người chơi); ban ngày 22 177 / 19 032 (tượng) và 26 112 (campus) / 22 967 (town) (bộ nhân vật), đo bằng `sceneBudget()` | `scene.test.ts` (fail nếu > 20 hoặc > 28 000; trước v0.4 là 16 và 23 000). Xoay 360° (v0.4) không thêm draw call hay tam giác; `scene.test.ts` còn kiểm khung `ORBIT_FRAME` và góc HUD ở mọi yaw |
 | `frameloop="demand"` | không frame khi đứng yên, kể cả lúc mưa dông ban đêm (mưa và chớp là CSS) | `e2e/play.spec.ts`, `e2e/weather.spec.ts` với `?debug=frames` |
 | Thời tiết | +0 draw call, +0 program, +0 tam giác trên cả 20 look; dựng lại khoảng 6 lần/ngày; 1 GET tới api.open-meteo.com khi vào hub rồi 30 phút/lần khi tab hiện; `rain.svg` < 1 kB nhúng `data:` | `scene.test.ts` (trần 18 draw call / 34 500 tam giác, tường orbit trên mọi look), `useSkyClock.test.ts`, `weather.spec.ts` |
@@ -85,7 +89,7 @@ app/
 
 ¹ Theo brief §5: chỉ tính chunk của route (three + r3f + mã scene), cộng thêm vào shell. Tải
 nguội trực tiếp `/play` khoảng 375 kB gzip, gồm cả shell ~115 kB. Lighthouse chạy trên
-`npm run preview` đo số chưa nén: đo sau một host có gzip hoặc bằng script tương đương.
+`bun run preview` đo số chưa nén: đo sau một host có gzip hoặc bằng script tương đương.
 
 **DPR:** không dùng `PerformanceMonitor`/`AdaptiveDpr` của drei: với `frameloop="demand"` khoảng
 nghỉ giữa các frame bị tính thành FPS thấp và hạ DPR sai. Thay bằng bộ đo trong `useHubFrame`: chỉ

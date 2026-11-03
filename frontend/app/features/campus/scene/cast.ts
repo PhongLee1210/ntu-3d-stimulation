@@ -17,6 +17,15 @@ import {
 } from "three";
 
 export const CAST_ROLES = ["player", "lan", "guard", "registrar", "operator", "examiner"] as const;
+
+export const RESERVE_CAST_ROLES = [
+  "femaleB",
+  "femaleC",
+  "femaleE",
+  "maleB",
+  "maleE",
+  "maleF",
+] as const;
 export type CastRole = (typeof CAST_ROLES)[number];
 
 export const CAST_JOINTS = [

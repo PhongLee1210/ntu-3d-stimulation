@@ -105,7 +105,7 @@ Câu bịa "Điều 47 ma" của L1 trùng với câu trên trang chủ: "Theo �
 | Ngân sách | Cách đo | Ở đâu |
 |---|---|---|
 | Trang chủ không có three | e2e: nghe `request` khi tải `/`, không URL chunk nào chứa module three/r3f (tên chunk lấy từ manifest build, không đoán theo tên file) | `e2e/landing.spec.ts` |
-| `/play` ≤ 300 KB gzip | script đọc `build/client/.vite/manifest.json`, cộng gzip mọi chunk JS của route `play` (cả import tĩnh), fail nếu vượt | script trong `frontend/scripts/`, gọi trong `npm run check` hoặc `build` |
+| `/play` ≤ 300 KB gzip | script đọc `build/client/.vite/manifest.json`, cộng gzip mọi chunk JS của route `play` (cả import tĩnh), fail nếu vượt | script trong `frontend/scripts/`, gọi trong `bun run check` hoặc `build` |
 | ≤ 40 draw call, ≤ 60k tam giác | vitest trên hàm dựng geometry thuần: đếm nhóm (= draw call) và tam giác cho **cả hai** theme; mục tiêu thực tế theo art §6.1 (13 / ≤ 9 000), test fail nếu > 16 hoặc > 12 000 để bắt trôi sớm | `app/features/campus/*.test.ts` |
 | `frameloop="demand"`, không render khi đứng yên | e2e chạy trên build prod, nên bộ đếm frame chỉ gắn khi URL có `?debug=frames` (ghi `document.documentElement.dataset.frames`, không gắn biến toàn cục); e2e đứng yên 2 s, giá trị không tăng | `e2e/play.spec.ts` |
 | Không shadow map / postprocessing | grep trong test: không `castShadow`, `shadows`, `EffectComposer` dưới `app/features/campus` | vitest hoặc lint |
@@ -170,7 +170,7 @@ Không dùng `waitForTimeout` để chờ trạng thái; chờ theo locator ho�
 ## 10. Tiêu chí nghiệm thu v0.1
 
 Đạt khi **tất cả** đúng:
-1. Trong `frontend/`: `npm run check`, `npm run build`, `npm run test:e2e` đều xanh. `grep -rniI vinuni frontend/app backend/src backend/tests` rỗng.
+1. Trong `frontend/`: `bun run check`, `bun run build`, `bun run test:e2e` đều xanh. `grep -rniI vinuni frontend/app backend/src backend/tests` rỗng.
 2. `/play` hiện sa bàn có ánh sáng ở cả hai theme; ThemeToggle đổi bảng màu và landmark không tải lại; đi được bằng phím và click/chạm; va chạm nhà, cây, đài phun.
 3. Gần cô Lan: gợi ý đúng §4; E/chạm/click mở hội thoại bẫy focus với đúng 2 câu; Esc đóng, trả focus; "Vào Thư viện" tới `/play/library`. Hai khu kia "Sắp mở". Mọi việc làm được qua danh sách "Các khu" chỉ bằng bàn phím.
 4. `/play/library` đúng 3 màn từ API theo thứ tự, đủ title/brief/concepts, màn 3 có "Sự cố", nút "Đang xây" disabled. Khu `coming_soon` → trang khoá; id lạ → không tìm thấy. API lỗi: cả hai route có lỗi tiếng Việt và "Thử lại"; cảnh hub vẫn chạy.

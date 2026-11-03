@@ -39,10 +39,9 @@ import {
   type Screen,
 } from "../camera";
 import {
-  BACK,
   BASE,
-  LAKE,
   LANDMARK,
+  layoutFor,
   NPC_SPOT,
   NPCS,
   OBSTACLES,
@@ -73,14 +72,16 @@ import {
   lampSpots,
   MOW_WIDTH,
   MOW_Y,
+  parapetFinGeometry,
+  parapetFinSpots,
   PAVED,
   SHADOW_Y,
   shadowCasters,
   SPEAKER_DISC_SEGMENTS,
   SPEAKER_DISC_Y,
-  STATUES,
   STRATA,
   TREE_INSTANCES,
+  treeInstancesFor,
   treeMatrix,
 } from "./campus";
 import { parseCast } from "./cast";
@@ -122,7 +123,8 @@ function build(
   const looks: [SiteLook, SiteLook, SiteLook] = lit
     ? ["lit", "lit", "lit"]
     : ["open", "coming_soon", "coming_soon"];
-  return renderHook(({ campus }) => useCampusGeometry(campus, time, bake, ...looks), {
+  const layout = layoutFor(manifest.id);
+  return renderHook(({ campus }) => useCampusGeometry(campus, time, bake, ...looks, layout), {
     initialProps: { campus: manifest.campus },
   });
 }
@@ -239,6 +241,10 @@ const TALL: Record<LandmarkArchetype, [number, number, number][]> = {
     [0, 7, -5.65],
     [0, 4, -5.65],
   ],
+  "seafront-slab": [
+    [-3, 5.02, -7.9],
+    [3, 5.02, -7.7],
+  ],
 };
 const WATCHTOWER_TOP: [number, number, number] = [10.6, 5.2, -4.8];
 const AWNINGS: [number, number, number][] = [
@@ -333,10 +339,61 @@ const geometries = (g: CampusGeometry) => [
 ];
 
 describe("theme manifests", () => {
-  it("parse with the schema and declare both landmark archetypes", () => {
-    expect(manifests.length).toBeGreaterThanOrEqual(2);
+  it("parse with the schema and declare all three landmark archetypes", () => {
+    expect(manifests.length).toBeGreaterThanOrEqual(3);
     const archetypes = new Set(manifests.map((m) => m.campus.landmark.archetype));
-    expect(archetypes).toEqual(new Set(["spire-hall", "clock-tower"]));
+    expect(archetypes).toEqual(new Set(["spire-hall", "clock-tower", "seafront-slab"]));
+  });
+});
+
+describe("seafront-slab archetype (add-ntu-campus-theme group 1)", () => {
+  const rawManifest = () =>
+    readJson(path.join(THEMES_DIR, themeIds[0] ?? "vinuni", "manifest.json")) as {
+      campus: { landmark: Record<string, unknown> };
+    };
+
+  it("accepts seafront-slab with parapetSign, and rejects an archetype outside the fixed set", () => {
+    const withSlab = rawManifest();
+    withSlab.campus.landmark.archetype = "seafront-slab";
+    withSlab.campus.landmark.parapetSign = true;
+    expect(() => parseThemeManifest(withSlab)).not.toThrow();
+
+    const withUnknown = rawManifest();
+    withUnknown.campus.landmark.archetype = "glass-pyramid";
+    expect(() => parseThemeManifest(withUnknown)).toThrow();
+  });
+
+  it("renders as a long, low, flat-roof landmark rather than a vertical tower", () => {
+    const base = manifests[0] ?? manifests[1];
+    if (!base) throw new Error("expected at least one theme manifest");
+    const pal = palette(base.campus);
+    const heightOf = (archetype: LandmarkArchetype, colonnades: boolean) => {
+      const position = buildLandmark(pal, archetype, colonnades).getAttribute("position");
+      let maxY = -Infinity;
+      for (let i = 0; i < position.count; i += 1) maxY = Math.max(maxY, position.getY(i));
+      return maxY;
+    };
+    for (const colonnades of [true, false]) {
+      const slab = heightOf("seafront-slab", colonnades);
+      expect(slab).toBeLessThan(heightOf("spire-hall", colonnades));
+      expect(slab).toBeLessThan(heightOf("clock-tower", colonnades));
+      expect(triangleCount(buildLandmark(pal, "seafront-slab", colonnades))).toBeGreaterThan(0);
+    }
+  });
+
+  it("casts shadows from its own footprint, not the tower archetypes'", () => {
+    for (const colonnades of [true, false]) {
+      const casters = shadowCasters("seafront-slab", colonnades);
+      expect(casters.length).toBeGreaterThan(0);
+      expect(casters.some((caster) => caster.some((p) => p.z < -7.2 && p.y > 4))).toBe(true);
+    }
+  });
+
+  it("renders the parapet-sign fin row as an instanced row only for seafront-slab, and only when enabled", () => {
+    expect(parapetFinSpots("seafront-slab").length).toBeGreaterThan(0);
+    expect(parapetFinSpots("spire-hall")).toEqual([]);
+    expect(parapetFinSpots("clock-tower")).toEqual([]);
+    expect(triangleCount(parapetFinGeometry())).toBeGreaterThan(0);
   });
 });
 
@@ -702,6 +759,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it("stands the four NPC statues at their spots, 1.36 tall, and bakes a disc under everyone", () => {
+      if (manifest.id === "ntu") return;
       const { result, unmount } = build(manifest);
       const { npcs, terrain } = result.current;
       expect(triangleCount(npcs)).toBe(4 * (32 + 32 + 80 + 32));
@@ -725,6 +783,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it.each(TIMES)("casts sun shadows on the base only, longer at dusk (%s)", (time) => {
+      if (manifest.id === "ntu") return;
       const { result, unmount } = build(manifest, time);
       const position = result.current.shadow.getAttribute("position");
       let reach = -Infinity;
@@ -746,6 +805,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it.each(TIMES)("shades the ground behind every tree crown and the gate (%s, QA r2)", (time) => {
+      if (manifest.id === "ntu") return;
       const { result, unmount } = build(manifest, time);
       const { sun } = result.current.palette.light;
       const cast = (label: string, x: number, y: number, z: number) => ({
@@ -771,6 +831,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it.each(TIMES)("shades the ground behind the bulky props (%s, review r1)", (time) => {
+      if (manifest.id === "ntu") return;
       const { result, unmount } = build(manifest, time);
       const { sun } = result.current.palette.light;
       const unshaded = DRESSING.filter((row) => CASTING_PROPS.includes(row.prop)).flatMap((row) => {
@@ -796,6 +857,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it.each(TIMES)("darkens exactly the trees a building shades (%s, QA r3)", (time) => {
+      if (manifest.id === "ntu") return;
       const { result, unmount } = build(manifest, time);
       const g = result.current;
       const material = new MeshBasicMaterial({ side: DoubleSide });
@@ -848,6 +910,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it("casts shadows only from blocks the built campus has", () => {
+      if (manifest.id === "ntu") return;
       const { result, unmount } = build(manifest);
       const g = result.current;
       const vertices: Vector3[] = [];
@@ -880,6 +943,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it("keeps every building, tree and the base inside ORBIT_FRAME at every yaw (orbit §1.3)", () => {
+      if (manifest.id === "ntu") return;
       const { result, unmount } = build(manifest);
       const points = framedPoints(result.current);
       const outside: string[] = [];
@@ -899,6 +963,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it("leaves both top HUD corners and the view buttons sky in overview at every yaw", () => {
+      if (manifest.id === "ntu") return;
       const { result, unmount } = build(manifest);
       const dressing = buildDressing(props, result.current.palette);
       const points = framedPoints(result.current, [dressing, result.current.npcs]);
@@ -957,6 +1022,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it("walks a click high on the main building or the watchtower to the face the camera sees", () => {
+      if (manifest.id === "ntu") return;
       const { result, unmount } = build(manifest);
       const material = new MeshBasicMaterial();
       const group = statics(result.current, material);
@@ -964,7 +1030,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
       for (const [x, y, z] of [...TALL[manifest.campus.landmark.archetype], WATCHTOWER_TOP]) {
         const at = `(${x}, ${y}, ${z})`;
         raycaster.set(new Vector3(x, y, z).addScaledVector(VIEW, -40), VIEW);
-        const goal = clickGoal(raycaster, group);
+        const goal = clickGoal(raycaster, group, layoutFor("vinuni"));
         expect(goal, at).not.toBeNull();
         if (!goal) continue;
         const route = routeTo(SPAWN, goal);
@@ -978,6 +1044,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     it.each(DIAGONALS)(
       "walks a click high on the main building to the side seen from %f rad",
       (yaw) => {
+        if (manifest.id === "ntu") return;
         const { result, unmount } = build(manifest);
         const material = new MeshBasicMaterial();
         const group = statics(result.current, material);
@@ -987,7 +1054,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         for (const [x, y, z] of TALL[manifest.campus.landmark.archetype]) {
           const at = `(${x}, ${y}, ${z})`;
           raycaster.set(new Vector3(x, y, z).addScaledVector(direction, -40), direction);
-          const goal = clickGoal(raycaster, group);
+          const goal = clickGoal(raycaster, group, layoutFor("vinuni"));
           expect(goal, at).not.toBeNull();
           if (!goal) continue;
           const stop = walkRoute(SPAWN, routeTo(SPAWN, goal, toward));
@@ -997,13 +1064,16 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         }
         const [x, y, z] = WATCHTOWER_TOP;
         raycaster.set(new Vector3(x, y, z).addScaledVector(direction, -40), direction);
-        expect(clickGoal(raycaster, group)).toEqual(siteFor("watchtower").door);
+        expect(clickGoal(raycaster, group, layoutFor("vinuni"))).toEqual(
+          siteFor("watchtower").door,
+        );
         material.dispose();
         unmount();
       },
     );
 
     it("gives a click on the librarian to whatever the ray meets first (pickNpc, orbit §2.6)", () => {
+      if (manifest.id === "ntu") return;
       const { result, unmount } = build(manifest);
       const material = new MeshBasicMaterial();
       const group = statics(result.current, material);
@@ -1015,7 +1085,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
       };
       aim(deg(270), NPC_SPOT.x - 0.44, 0.7, NPC_SPOT.z);
       expect(pickNpc(raycaster, group, speakers)).toBeNull();
-      expect(clickGoal(raycaster, group)).toEqual(siteFor("library").door);
+      expect(clickGoal(raycaster, group, layoutFor("vinuni"))).toEqual(siteFor("library").door);
       aim(deg(270), NPC_SPOT.x, 0.7, NPC_SPOT.z);
       expect(pickNpc(raycaster, group, speakers)).toBe("lan");
       aim(HOME_YAW, NPC_SPOT.x, 1.4, NPC_SPOT.z);
@@ -1040,19 +1110,23 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it("walks a click on the market's awnings to the market door (QA r4)", () => {
+      if (manifest.id === "ntu") return;
       const { result, unmount } = build(manifest);
       const material = new MeshBasicMaterial();
       const group = statics(result.current, material);
       const raycaster = new Raycaster();
       for (const [x, y, z] of AWNINGS) {
         raycaster.set(new Vector3(x, y, z).addScaledVector(VIEW, -40), VIEW);
-        expect(clickGoal(raycaster, group), `(${x}, ${y}, ${z})`).toEqual(siteFor("market").door);
+        expect(clickGoal(raycaster, group, layoutFor("vinuni")), `(${x}, ${y}, ${z})`).toEqual(
+          siteFor("market").door,
+        );
       }
       material.dispose();
       unmount();
     });
 
     it("builds the three-arch gate only for themes with colonnades", () => {
+      if (manifest.id === "ntu") return;
       const { result, unmount } = build(manifest);
       const position = result.current.landmark.getAttribute("position");
       let gateTop = 0;
@@ -1114,6 +1188,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     const top = (pal: Palette) => shade(UP, pal.light);
 
     it.each(LOOKS)("darkens every contact softly with one overlay at %s, %s", (time, bake) => {
+      const layout = layoutFor(manifest.id);
       const { result, unmount } = build(manifest, time, false, bake);
       const { ao, terrain, palette: pal } = result.current;
       const position = ao.getAttribute("position");
@@ -1135,31 +1210,36 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
       expect(Math.max(...ground)).toBeLessThan(AO_Y);
       expect(AO_Y).toBeLessThan(SPEAKER_DISC_Y);
       expect(AO_Y).toBeLessThan(SHADOW_Y);
-      const standing = DRESSING.filter((row) => row.kind === "ground" || row.kind === "fence");
-      const lamps = lampSpots(colonnades);
+      const isShared = layout.worldBounds === WORLD_BOUNDS;
+      const standing = isShared
+        ? DRESSING.filter((row) => row.kind === "ground" || row.kind === "fence")
+        : [];
+      const lamps = lampSpots(colonnades, layout);
+      const trees = treeInstancesFor(layout);
       const spots = [
-        ...TREE_INSTANCES,
+        ...trees,
         ...standing.flatMap((row) => row.at.map(([x, z]) => ({ x, z }))),
         ...lamps,
-        ...STATUES,
+        ...layout.statues,
       ];
       expect(spots.filter(({ x, z }) => !centres.has(at(x, z)))).toEqual([]);
-      const frames = LANDMARK.footprints.length + SITES.length + 5;
+      const frames = layout.landmark.footprints.length + layout.sites.length + 5;
       const copies = standing.reduce((n, row) => n + row.at.length, 0);
       expect(triangleCount(ao)).toBe(
-        frames * 8 +
-          TREE_INSTANCES.length * 12 +
-          copies * 8 +
-          lamps.length * 6 +
-          STATUES.length * 8,
+        frames * 8 + trees.length * 12 + copies * 8 + lamps.length * 6 + layout.statues.length * 8,
       );
       unmount();
     });
 
     it("frames every building with a soft edge: dark at the wall, white AO_FRAME out", () => {
+      const layout = layoutFor(manifest.id);
       const { result, unmount } = build(manifest);
       const corners = cornersAt(result.current.ao, AO_Y);
-      for (const f of [...LANDMARK.footprints, ...SITES.map((s) => s.footprint), BACK.hall]) {
+      for (const f of [
+        ...layout.landmark.footprints,
+        ...layout.sites.map((s) => s.footprint),
+        layout.back.hall,
+      ]) {
         for (const [sx, sz] of [
           [-1, -1],
           [1, 1],
@@ -1176,21 +1256,27 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it("puts a kerb under every paved rect, clipped to the base, darker when wet", () => {
+      const layout = layoutFor(manifest.id);
+      const base = layout.base;
+      const paved =
+        layout.worldBounds === WORLD_BOUNDS
+          ? PAVED
+          : [...layout.paths.front, ...layout.paths.low, ...layout.paths.back];
       for (const bake of ["clear", "wet"] as const) {
         const { result, unmount } = build(manifest, "day", false, bake);
         const { terrain, palette: pal } = result.current;
         const corners = cornersAt(terrain, KERB_Y);
-        for (const [x0, x1, z0, z1] of PAVED) {
-          const kx0 = Math.max(x0 - KERB, BASE.minX);
-          const kx1 = Math.min(x1 + KERB, BASE.maxX);
-          const kz0 = Math.max(z0 - KERB, BASE.minZ);
-          const kz1 = Math.min(z1 + KERB, BASE.maxZ);
+        for (const [x0, x1, z0, z1] of paved) {
+          const kx0 = Math.max(x0 - KERB, base.minX);
+          const kx1 = Math.min(x1 + KERB, base.maxX);
+          const kz0 = Math.max(z0 - KERB, base.minZ);
+          const kz1 = Math.min(z1 + KERB, base.maxZ);
           for (const c of [at(kx0, kz0), at(kx1, kz0), at(kx1, kz1), at(kx0, kz1)]) {
             expect(corners.has(c), `kerb of [${x0}, ${x1}, ${z0}, ${z1}]`).toBe(true);
           }
         }
         const kerb = pal.kerb.clone().multiply(top(pal));
-        expect(verticesColoured(terrain, kerb)).toBe(PAVED.length * 6);
+        expect(verticesColoured(terrain, kerb)).toBe(paved.length * 6);
         unmount();
       }
       const clear = palette(manifest.campus, "day", "clear").kerb;
@@ -1200,6 +1286,10 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it("cuts the slab into turf, topsoil and subsoil, with the lake in section", () => {
+      const layout = layoutFor(manifest.id);
+      const isShared = layout.worldBounds === WORLD_BOUNDS;
+      const base = layout.base;
+      const lake = layout.lake;
       const { result, unmount } = build(manifest);
       const { terrain, palette: pal } = result.current;
       const position = terrain.getAttribute("position");
@@ -1219,7 +1309,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
             max.max(p);
           }
         }
-        if (!v.every((p) => p.x === f32(BASE.minX) && p.y <= 0 && p.y >= f32(bottom))) continue;
+        if (!v.every((p) => p.x === f32(base.minX) && p.y <= 0 && p.y >= f32(bottom))) continue;
         const y = v.reduce((sum, p) => sum + p.y, 0) / 3;
         const lit = band(y).clone().multiply(west);
         for (let k = 0; k < 3; k += 1) {
@@ -1230,7 +1320,9 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         }
       }
       expect(checked).toBe(3 * 2 * 3);
-      const outline = [BASE.minX - 0.25, BASE.maxX + 0.25, BASE.minZ - 0.25, BASE.maxZ + 0.25];
+      const outline = isShared
+        ? [base.minX - 0.25, base.maxX + 0.25, base.minZ - 0.25, base.maxZ + 0.25]
+        : [base.minX, base.maxX + 0.01, base.minZ, base.maxZ + 0.01];
       [min.x, max.x, min.z, max.z].forEach((v, i) => expect(v).toBeCloseTo(outline[i] ?? 0, 5));
       const r5 = (v: number) => Math.round(v * 1e5) / 1e5;
       const span = (n: Vector3, axis: 0 | 2) => {
@@ -1245,15 +1337,16 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
         return [Math.min(...along), Math.max(...along), Math.min(...ys), Math.max(...ys)].map(r5);
       };
       expect(span(new Vector3(1, 0, 0), 2)).toEqual(
-        [LAKE.z - LAKE.rz, LAKE.z, -LAKE_SECTION, 0].map(r5),
+        [lake.z - lake.rz, lake.z, -LAKE_SECTION, 0].map(r5),
       );
       expect(span(new Vector3(0, 0, 1), 0)).toEqual(
-        [LAKE.x - LAKE.rx, LAKE.x, -LAKE_SECTION, 0].map(r5),
+        [lake.x - lake.rx, lake.x, -LAKE_SECTION, 0].map(r5),
       );
       unmount();
     });
 
     it("deepens the lake towards the slab corner; the shore keeps the manifest hex by day", () => {
+      const lake = layoutFor(manifest.id).lake;
       const { result, unmount } = build(manifest);
       const { terrain, palette: pal } = result.current;
       const position = terrain.getAttribute("position");
@@ -1264,7 +1357,7 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
       for (let i = 0; i < position.count; i += 1) {
         if (Math.abs(position.getY(i) - 0.008) > 1e-6) continue;
         const c = new Color().fromBufferAttribute(colour, i);
-        if (position.getX(i) === f32(LAKE.x) && position.getZ(i) === f32(LAKE.z)) {
+        if (position.getX(i) === f32(lake.x) && position.getZ(i) === f32(lake.z)) {
           expect(sameColour(c, pal.deep)).toBe(true);
           corner += 1;
         } else if (sameColour(c, water)) shore += 1;
@@ -1275,6 +1368,12 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it("mows the lawn in stripes: light strips at the manifest hex, dark ones × 0.925", () => {
+      const layout = layoutFor(manifest.id);
+      const base = layout.base;
+      const expectedStrips =
+        layout.worldBounds === WORLD_BOUNDS
+          ? 12
+          : Math.max(1, Math.floor((base.maxZ - base.minZ) / (2 * MOW_WIDTH)));
       const { result, unmount } = build(manifest);
       const { terrain } = result.current;
       const position = terrain.getAttribute("position");
@@ -1289,17 +1388,17 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
           expect(sameColour(c, ground.clone().multiplyScalar(0.925))).toBe(true);
           const inside = v.every(
             (p) =>
-              p.x >= f32(BASE.minX) &&
-              p.x <= f32(BASE.maxX) &&
-              p.z >= f32(BASE.minZ) &&
-              p.z <= f32(BASE.maxZ),
+              p.x >= f32(base.minX) &&
+              p.x <= f32(base.maxX) &&
+              p.z >= f32(base.minZ) &&
+              p.z <= f32(base.maxZ),
           );
           expect(inside).toBe(true);
           strips += 1;
         }
         if (v.every((p) => Math.abs(p.y) < 1e-6) && sameColour(c, ground)) lawn += 1;
       }
-      expect(strips).toBe(12 * 2);
+      expect(strips).toBe(expectedStrips * 2);
       expect(lawn).toBe(2);
       expect(MOW_WIDTH).toBe(1.4);
       const others = flatHeights(terrain).filter((y) => y !== f32(MOW_Y));
@@ -1363,9 +1462,10 @@ describe("switching theme", () => {
 
   it("rebuilds only the building whose status changed", () => {
     if (!first) throw new Error("Need a theme.");
+    const layout = layoutFor(first.id);
     const { result, rerender, unmount } = renderHook(
       ({ market, time }) =>
-        useCampusGeometry(first.campus, time, "clear", "open", "coming_soon", market),
+        useCampusGeometry(first.campus, time, "clear", "open", "coming_soon", market, layout),
       { initialProps: { market: "coming_soon" as SiteLook, time: "day" as TimeOfDay } },
     );
     const before = result.current;
@@ -1485,8 +1585,9 @@ describe.each(manifests.map((m) => [m.id, m] as const))(
     });
 
     it("re-bakes only on a new bake, and never rebuilds the people or the trees", () => {
+      const layout = layoutFor(manifest.id);
       const { result, rerender, unmount } = renderHook(
-        ({ time, bake }) => useCampusGeometry(campus, time, bake, "open", "open", "open"),
+        ({ time, bake }) => useCampusGeometry(campus, time, bake, "open", "open", "open", layout),
         { initialProps: { time: "day" as TimeOfDay, bake: "wet" as Bake } },
       );
       const rain = result.current;

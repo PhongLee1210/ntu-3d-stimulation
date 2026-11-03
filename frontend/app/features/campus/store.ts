@@ -2,19 +2,9 @@ import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 
 import { HOME_YAW, nextIsoYaw, wrapAngle } from "./camera";
-import {
-  INTERACT_RADIUS,
-  routeTo,
-  SPAWN,
-  SPAWN_HEADING,
-  speakerSpot,
-  talkSpot,
-  towardFor,
-  type Speaker,
-  type Vec2,
-} from "./layout";
+import { layoutFor, towardFor, type CampusLayout, type Speaker, type Vec2 } from "./layout";
 import { nearestWithin } from "./movement";
-import { INTERACT_POINTS, type InteractTarget } from "./sites";
+import { interactPoints, type InteractTarget } from "./sites";
 import { sceneLook, type Display, type Phase, type SceneLook, type Weather } from "./sky";
 
 export interface Motion {
@@ -69,6 +59,7 @@ export interface HubState {
   rotated: boolean;
   wake: () => void;
   sceneUp: boolean;
+  layout: CampusLayout;
 
   setNearby: (target: InteractTarget | null) => void;
   openDialog: (who: Speaker) => void;
@@ -84,12 +75,14 @@ export interface HubState {
   setRotated: (rotated: boolean) => void;
   resetView: () => void;
   setWake: (wake: (() => void) | null) => void;
+  setLayout: (layout: CampusLayout) => void;
 }
 
 const noop = () => undefined;
 
 export function createHubStore() {
   return createStore<HubState>()((set, get) => {
+    const layout = layoutFor("vinuni");
     const setSky = (change: Partial<Omit<HubSky, "look">>) => {
       const sky = get().sky;
       const next = { ...sky, ...change };
@@ -118,8 +111,8 @@ export function createHubStore() {
         look: sceneLook("live", "day", null),
       },
       motion: {
-        position: { ...SPAWN },
-        heading: SPAWN_HEADING,
+        position: { ...layout.spawn },
+        heading: layout.spawnHeading,
         target: null,
         route: [],
         talkOnArrival: null,
@@ -129,6 +122,7 @@ export function createHubStore() {
       rotated: false,
       wake: noop,
       sceneUp: false,
+      layout,
 
       setNearby: (nearby) => {
         if (nearby !== get().nearby) set({ nearby });
@@ -150,25 +144,28 @@ export function createHubStore() {
         get().wake();
       },
       talkTo: (who) => {
-        const spot = speakerSpot(who);
-        const talk = talkSpot(who);
+        const { layout } = get();
+        const spot = layout.speakerSpot(who);
+        const talk = layout.talkSpot(who);
         get().placePlayer(talk, Math.atan2(spot.x - talk.x, spot.z - talk.z));
         get().openDialog(who);
       },
       placePlayer: (position, heading) => {
-        const { motion } = get();
+        const { motion, layout } = get();
         motion.position = { ...position };
         motion.heading = heading;
         motion.target = null;
         motion.route = [];
         motion.talkOnArrival = null;
         motion.keys.clear();
-        get().setNearby(nearestWithin(position, INTERACT_POINTS, INTERACT_RADIUS)?.id ?? null);
+        get().setNearby(
+          nearestWithin(position, interactPoints(layout), layout.interactRadius)?.id ?? null,
+        );
         get().wake();
       },
       walkTo: (goal) => {
-        const { motion } = get();
-        const [next, ...rest] = routeTo(motion.position, goal, towardFor(get().view.yaw));
+        const { motion, layout } = get();
+        const [next, ...rest] = layout.routeTo(motion.position, goal, towardFor(get().view.yaw));
         motion.target = next ?? null;
         motion.route = rest;
         motion.talkOnArrival = null;
@@ -209,6 +206,7 @@ export function createHubStore() {
         get().setRotated(false);
       },
       setWake: (wake) => set({ wake: wake ?? noop, sceneUp: wake !== null }),
+      setLayout: (layout) => set({ layout }),
     };
   });
 }

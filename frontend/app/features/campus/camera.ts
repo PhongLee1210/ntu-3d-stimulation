@@ -89,14 +89,23 @@ export function dragRate(width: number): number {
   return (2 * Math.PI) / Math.min(Math.max(width, 600), 1200);
 }
 
-export function contentAt(yaw: number): Bounds2 {
+export interface ContentBounds {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+const DEFAULT_CONTENT_BOUNDS: ContentBounds = { minX: -14.8, maxX: 14.8, minZ: -21.5, maxZ: 12.6 };
+
+export function contentAt(yaw: number, bounds: ContentBounds = DEFAULT_CONTENT_BOUNDS): Bounds2 {
   const b = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
   for (const [y, grow] of [
     [-0.8, 0.25],
     [0, 0],
   ] as const) {
-    for (const x of [-14.8 - grow, 14.8 + grow]) {
-      for (const z of [-21.5 - grow, 12.6 + grow]) {
+    for (const x of [bounds.minX - grow, bounds.maxX + grow]) {
+      for (const z of [bounds.minZ - grow, bounds.maxZ + grow]) {
         const { sx, sy } = toScreen(x, y, z, yaw);
         b.minX = Math.min(b.minX, sx);
         b.maxX = Math.max(b.maxX, sx);
@@ -131,8 +140,13 @@ function clampAxis(value: number, half: number, min: number, max: number): numbe
   return Math.min(Math.max(value, min + half), max - half);
 }
 
-export function clampCentre(centre: Screen, view: View, yaw = HOME_YAW): Screen {
-  const content = contentAt(yaw);
+export function clampCentre(
+  centre: Screen,
+  view: View,
+  yaw = HOME_YAW,
+  bounds: ContentBounds = DEFAULT_CONTENT_BOUNDS,
+): Screen {
+  const content = contentAt(yaw, bounds);
   const hw = view.width / (2 * view.zoom);
   const hh = (view.height - view.insetTop - view.insetBottom) / (2 * view.zoom);
   return {
@@ -147,12 +161,13 @@ export function desiredCentre(
   view: View,
   centreOnFocus = false,
   yaw = HOME_YAW,
+  bounds: ContentBounds = DEFAULT_CONTENT_BOUNDS,
 ): Screen {
   if (view.mode === "overview") {
     const pivot = toScreen(PIVOT.x, 0, PIVOT.z, yaw);
     return { sx: pivot.sx, sy: pivot.sy + (ORBIT_FRAME.top + ORBIT_FRAME.bottom) / 2 };
   }
-  if (centreOnFocus) return clampCentre(focus, view, yaw);
+  if (centreOnFocus) return clampCentre(focus, view, yaw, bounds);
   const halfW = (0.12 * view.width) / view.zoom;
   const halfH = (0.1 * (view.height - view.insetTop - view.insetBottom)) / view.zoom;
   const push = (value: number, target: number, half: number) =>
@@ -161,6 +176,7 @@ export function desiredCentre(
     { sx: push(current.sx, focus.sx, halfW), sy: push(current.sy, focus.sy, halfH) },
     view,
     yaw,
+    bounds,
   );
 }
 

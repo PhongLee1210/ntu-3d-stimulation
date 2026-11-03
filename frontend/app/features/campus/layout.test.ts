@@ -6,12 +6,14 @@ import {
   BASE,
   BACK_SPOT,
   BACK_Z,
+  buildRouteGraph,
   CYPRESS_TREES,
   FOUNTAIN_RADIUS,
   GATE,
   HOME_TOWARD,
   INTERACT_RADIUS,
   LAKE,
+  layoutFor,
   NPC_SPOT,
   NPC_TALK_SPOT,
   NPCS,
@@ -22,14 +24,22 @@ import {
   ROUND_TREES,
   routeTo,
   SITES,
+  crossingConnects,
+  DEFAULT_TIER_ID,
   SPAWN,
   SPAWN_HEADING,
   speakerSpot,
+  STAIR_CROSSINGS,
   talkSpot,
+  TERRAIN_TIERS,
+  tierIdOf,
   towardFor,
   TREES,
   WORLD_BOUNDS,
   type Box,
+  type CampusLayout,
+  type StairCrossing,
+  type TerrainTier,
   type Vec2,
 } from "./layout";
 import { HOME_YAW } from "./camera";
@@ -47,6 +57,181 @@ const gap = (p: Vec2, f: Box) =>
     Math.max(Math.abs(p.x - f.x) - f.halfX, 0),
     Math.max(Math.abs(p.z - f.z) - f.halfZ, 0),
   );
+
+describe("layoutFor (per-theme campus layout)", () => {
+  it("resolves vinuni and town to the same layout instance, equal to the forwarded constants", () => {
+    const vinuni = layoutFor("vinuni");
+    const town = layoutFor("town");
+    expect(vinuni).toBe(town);
+    expect(vinuni.obstacles).toBe(OBSTACLES);
+    expect(vinuni.sites).toBe(SITES);
+    expect(vinuni.routeTo).toBe(routeTo);
+  });
+
+  it("gives ntu its own distinct layout, not the shared vinuni/town one", () => {
+    const vinuni = layoutFor("vinuni");
+    const ntu = layoutFor("ntu");
+    expect(ntu).not.toBe(vinuni);
+    expect(ntu.worldBounds).not.toEqual(vinuni.worldBounds);
+  });
+
+  it("memoizes: resolving the same theme id twice returns the identical object, not a rebuild", () => {
+    const first: CampusLayout = layoutFor("vinuni");
+    const second: CampusLayout = layoutFor("vinuni");
+    expect(first).toBe(second);
+    expect(first.obstacles).toBe(second.obstacles);
+    const ntuFirst = layoutFor("ntu");
+    const ntuSecond = layoutFor("ntu");
+    expect(ntuFirst).toBe(ntuSecond);
+  });
+
+  it("rejects an unregistered theme id instead of silently falling back to a default layout", () => {
+    expect(() => layoutFor("some-other-theme")).toThrow(/No campus layout registered/);
+  });
+});
+
+describe("terrainTiers (add-ntu-campus-theme §2.1)", () => {
+  it("defaults to a single implicit ground tier spanning worldBounds at elevation 0", () => {
+    expect(TERRAIN_TIERS).toHaveLength(1);
+    const [tier] = TERRAIN_TIERS;
+    if (!tier) throw new Error("expected a default ground tier");
+    expect(tier.elevationY).toBe(0);
+    expect(tier.bounds.x).toBe((WORLD_BOUNDS.minX + WORLD_BOUNDS.maxX) / 2);
+    expect(tier.bounds.z).toBe((WORLD_BOUNDS.minZ + WORLD_BOUNDS.maxZ) / 2);
+    expect(tier.bounds.halfX).toBe((WORLD_BOUNDS.maxX - WORLD_BOUNDS.minX) / 2);
+    expect(tier.bounds.halfZ).toBe((WORLD_BOUNDS.maxZ - WORLD_BOUNDS.minZ) / 2);
+  });
+
+  it("is forwarded identically for vinuni and town", () => {
+    expect(layoutFor("vinuni").terrainTiers).toBe(layoutFor("town").terrainTiers);
+    expect(layoutFor("vinuni").terrainTiers).toBe(TERRAIN_TIERS);
+  });
+});
+
+describe("stairCrossings (add-ntu-campus-theme §2.2)", () => {
+  it("defaults to no crossings for a single-tier layout", () => {
+    expect(STAIR_CROSSINGS).toHaveLength(0);
+  });
+
+  it("treats a position within a crossing's margin as connected to the other tier", () => {
+    const crossing: StairCrossing = {
+      tierA: "upper",
+      tierB: "lower",
+      pointOnA: { x: 0, z: 0 },
+      pointOnB: { x: 0, z: 10 },
+      margin: 0.5,
+    };
+    expect(crossingConnects({ x: 0.3, z: 0.2 }, crossing)).toBe(true);
+    expect(crossingConnects({ x: 0, z: 9.8 }, crossing)).toBe(true);
+  });
+
+  it("treats a position outside every crossing's margin as not connected", () => {
+    const crossing: StairCrossing = {
+      tierA: "upper",
+      tierB: "lower",
+      pointOnA: { x: 0, z: 0 },
+      pointOnB: { x: 0, z: 10 },
+      margin: 0.5,
+    };
+    expect(crossingConnects({ x: 3, z: 3 }, crossing)).toBe(false);
+  });
+});
+
+describe("tierIdOf (add-ntu-campus-theme §2.3)", () => {
+  it("resolves an obstacle/footprint box with no explicit tierId to the default tier", () => {
+    const box: Box = { x: 0, z: 0, halfX: 1, halfZ: 1 };
+    expect(tierIdOf(box)).toBe(DEFAULT_TIER_ID);
+  });
+
+  it("resolves an explicit tierId as-is", () => {
+    const box: Box = { x: 0, z: 0, halfX: 1, halfZ: 1, tierId: "upper" };
+    expect(tierIdOf(box)).toBe("upper");
+  });
+
+  it("leaves every existing vinuni/town obstacle on the default tier", () => {
+    expect(OBSTACLES.every((box) => tierIdOf(box) === DEFAULT_TIER_ID)).toBe(true);
+    expect(FOOTPRINTS.every(([, box]) => tierIdOf(box) === DEFAULT_TIER_ID)).toBe(true);
+  });
+});
+
+describe("buildRouteGraph cross-tier routing (add-ntu-campus-theme §3.1)", () => {
+  const worldBounds = { minX: -10, maxX: 10, minZ: -10, maxZ: 10 };
+  const terrainTiers: TerrainTier[] = [
+    { id: "upper", elevationY: 1, bounds: { x: 0, z: -5, halfX: 10, halfZ: 5 } },
+    { id: "lower", elevationY: 0, bounds: { x: 0, z: 5, halfX: 10, halfZ: 5 } },
+  ];
+  const crossing: StairCrossing = {
+    tierA: "upper",
+    tierB: "lower",
+    pointOnA: { x: 0, z: -0.5 },
+    pointOnB: { x: 0, z: 0.5 },
+    margin: 0.5,
+  };
+  const from: Vec2 = { x: -8, z: -8 };
+  const to: Vec2 = { x: 8, z: 8 };
+  const nearIndex = (route: Vec2[], point: Vec2) =>
+    route.findIndex((p) => Math.hypot(p.x - point.x, p.z - point.z) < 1e-6);
+
+  it("finds a path between a point on each tier through the declared stair crossing", () => {
+    const { routeTo: crossTierRouteTo } = buildRouteGraph({
+      obstacles: [],
+      worldBounds,
+      terrainTiers,
+      stairCrossings: [crossing],
+    });
+    const route = crossTierRouteTo(from, to);
+    const atA = nearIndex(route, crossing.pointOnA);
+    const atB = nearIndex(route, crossing.pointOnB);
+    expect(atA).toBeGreaterThanOrEqual(0);
+    expect(atB).toBeGreaterThan(atA);
+    expect(route.at(-1)).toEqual(to);
+  });
+
+  it("cannot bridge tiers when no stair crossing is declared", () => {
+    const { routeTo: noCrossingRouteTo } = buildRouteGraph({
+      obstacles: [],
+      worldBounds,
+      terrainTiers,
+      stairCrossings: [],
+    });
+    expect(noCrossingRouteTo(from, to)).toEqual([to]);
+  });
+});
+
+describe("ntu layout (add-ntu-campus-theme)", () => {
+  const ntu = layoutFor("ntu");
+  const tierOf = (p: Vec2) =>
+    ntu.terrainTiers.find(
+      (tier) =>
+        Math.abs(p.x - tier.bounds.x) <= tier.bounds.halfX &&
+        Math.abs(p.z - tier.bounds.z) <= tier.bounds.halfZ,
+    )?.id;
+
+  it("declares two terrain tiers and four stair crossings between them", () => {
+    expect(ntu.terrainTiers.map((tier) => tier.id)).toEqual(["upper", "lower"]);
+    expect(ntu.stairCrossings).toHaveLength(4);
+    expect(ntu.stairCrossings.every((c) => c.tierA === "upper" && c.tierB === "lower")).toBe(true);
+  });
+
+  it("places spawn on the upper tier and the landmark on the lower tier", () => {
+    expect(tierOf(ntu.spawn)).toBe("upper");
+    expect(tierOf(ntu.landmark.centre)).toBe("lower");
+  });
+
+  it("maps library, watchtower, and market onto the upper tier", () => {
+    for (const site of ntu.sites) expect(tierOf(site.centre)).toBe("upper");
+  });
+
+  it("routes between spawn and the landmark through a stair crossing", () => {
+    const route = ntu.routeTo(ntu.spawn, ntu.landmark.centre);
+    expect(route.at(-1)).toEqual(ntu.landmark.centre);
+    expect(route.length).toBeGreaterThan(2);
+  });
+
+  it("is a distinct object from the shared vinuni/town layout", () => {
+    expect(ntu).not.toBe(layoutFor("vinuni"));
+  });
+});
 
 describe("trees (campus-scene v0.3 §2.4)", () => {
   it("keeps 57 trees, all inside the world bounds", () => {

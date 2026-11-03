@@ -10,7 +10,7 @@ Shared by vitest (`app/features/workbench/*.test.ts`) and Playwright (`e2e/workb
 | `run-w1-<starter\|reference>.sse` | W1's starter and reference graph, run by the engine in process (no server, no AI call)      | the scripted model of `backend/tests/engine/test_watchtower.py`: `run(graph)` for each, every event written as one SSE frame with the fixed run id of `run-l1-short.sse` |
 | `run-l1-short.sse`                | hand-written: 2 cases, 6 event types, ends with `run.finished`                              | written by hand from engine-v0.2 §8; used for the reconnect, 429 and cancel tests                                                                                        |
 
-JSON files are Prettier-formatted (`npx prettier --write e2e/data`); the content is unchanged.
+JSON files are Prettier-formatted (`bunx prettier --write e2e/data`); the content is unchanged.
 Re-capture when the backend's level files, block registry or event contract change.
 Without a running backend, the JSON files can be captured from the same app with FastAPI's
 `TestClient` (no index or Gemini key needed for these GET routes): `GET` each path from
